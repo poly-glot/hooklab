@@ -44,7 +44,8 @@ jobs:
         working-directory: client
 
       - name: Typecheck server (deno check)
-        run: deno check server/main.ts
+        run: deno check main.ts
+        working-directory: server
 
   # ──────────────────────────────────────────────
   # Build client

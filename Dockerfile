@@ -1,7 +1,7 @@
 # ─────────────────────────────────────────────────────────────
 # Hooklab API — Deno on Cloud Run
 # ─────────────────────────────────────────────────────────────
-FROM denoland/deno:alpine-2.1.4
+FROM denoland/deno:alpine-2.5.6
 
 WORKDIR /app
 
@@ -23,7 +23,7 @@ EXPOSE 8080
 USER deno
 CMD ["deno", "run", \
      "--allow-net", \
-     "--allow-env=PORT,JWT_SECRET,DENO_ENV,ALLOWED_ORIGINS,K_SERVICE", \
-     "--allow-read=/app/server", \
+     "--allow-env", \
+     "--allow-read=/app", \
      "--unstable-worker-options", \
      "server/main.ts"]
