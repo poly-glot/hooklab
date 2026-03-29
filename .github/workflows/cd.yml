@@ -252,29 +252,15 @@ jobs:
     runs-on: ubuntu-latest
     needs: [deploy-production]
     steps:
-      - name: Health-check Cloud Run API
+      - name: Health-check site and API
         run: |
-          API_URL="${{ vars.CLOUD_RUN_URL }}"
-          if [ -z "$API_URL" ]; then
-            echo "CLOUD_RUN_URL not set, skipping API smoke test"
-            exit 0
-          fi
-          STATUS=$(curl -sf -o /dev/null -w "%{http_code}" "${API_URL}/api/health")
-          if [ "$STATUS" -ne 200 ]; then
-            echo "API smoke test FAILED: HTTP $STATUS"
-            exit 1
-          fi
-          echo "API smoke test passed: HTTP $STATUS"
+          SITE_URL="https://hooklab.junaid.guru"
+          STATUS=$(curl -sf -o /dev/null -w "%{http_code}" "${SITE_URL}")
+          echo "Hosting: HTTP $STATUS"
+          [ "$STATUS" -eq 200 ] || { echo "Hosting smoke test FAILED"; exit 1; }
 
-      - name: Health-check Firebase Hosting
-        run: |
-          SITE_URL="${{ vars.CUSTOM_DOMAIN }}"
-          if [ -z "$SITE_URL" ]; then
-            SITE_URL="${{ vars.FIREBASE_SITE_ID }}.web.app"
-          fi
-          STATUS=$(curl -sf -o /dev/null -w "%{http_code}" "https://${SITE_URL}")
-          if [ "$STATUS" -ne 200 ]; then
-            echo "Hosting smoke test FAILED: HTTP $STATUS"
-            exit 1
-          fi
-          echo "Hosting smoke test passed: HTTP $STATUS"
+          STATUS=$(curl -sf -o /dev/null -w "%{http_code}" "${SITE_URL}/api/health")
+          echo "API: HTTP $STATUS"
+          [ "$STATUS" -eq 200 ] || { echo "API smoke test FAILED"; exit 1; }
+
+          echo "All smoke tests passed"

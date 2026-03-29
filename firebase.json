@@ -18,6 +18,7 @@
     }
   ],
   "hosting": {
+    "site": "hooklab",
     "public": "client/dist",
     "ignore": [
       "firebase.json",
