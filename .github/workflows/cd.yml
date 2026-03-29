@@ -155,6 +155,7 @@ jobs:
         run: |
           if [ -n "${{ env.FIREBASE_SITE_ID }}" ]; then
             OUTPUT=$(firebase hosting:channel:deploy staging \
+              --project ${{ env.GCP_PROJECT_ID }} \
               --site ${{ env.FIREBASE_SITE_ID }} \
               --expires 7d \
               --json 2>/dev/null || true)
@@ -217,7 +218,7 @@ jobs:
       - name: Deploy client to Firebase Hosting (live)
         id: urls
         run: |
-          firebase deploy --only hosting --force
+          firebase deploy --only hosting --force --project ${{ env.GCP_PROJECT_ID }}
           SITE_URL="https://${{ env.FIREBASE_SITE_ID }}.web.app"
           if [ -n "${{ vars.CUSTOM_DOMAIN }}" ]; then
             SITE_URL="https://${{ vars.CUSTOM_DOMAIN }}"

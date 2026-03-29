@@ -1,7 +1,5 @@
 {
   "projects": {
-    "default": "demo-webhook",
-    "staging": "webhook-platform-stg",
-    "production": "webhook-platform-prod"
+    "default": "firebase-cloud-491613"
   }
 }
