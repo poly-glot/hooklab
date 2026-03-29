@@ -1,0 +1,37 @@
+services:
+  # Dev container - the main development environment
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"  # Deno API server
+      - "5173:5173"  # Vite dev server
+      - "4000:4000"  # Firebase Emulator UI
+      - "5001:5001"  # Firebase Functions
+      - "8080:8080"  # Firestore Emulator
+      - "9099:9099"  # Firebase Auth
+      - "9199:9199"  # Firebase Storage
+    volumes:
+      # Mount project source
+      - ..:/workspace:cached
+      # npm cache from host (shared cache, faster installs)
+      - ${HOME}/.npm:/home/vscode/.npm:cached
+      # Deno cache from host
+      - deno-cache:/home/vscode/.cache/deno
+      # Claude Code config from host
+      - ${HOME}/.claude:/home/vscode/.claude:cached
+      # Docker socket for potential container tooling
+      - /var/run/docker.sock:/var/run/docker.sock
+    # Keep container running
+    command: sleep infinity
+    networks:
+      - hooklab-network
+
+volumes:
+  deno-cache:
+    driver: local
+
+networks:
+  hooklab-network:
+    driver: bridge

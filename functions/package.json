@@ -1,0 +1,30 @@
+{
+  "name": "webhook-functions",
+  "description": "Cloud Functions for Webhook Platform",
+  "scripts": {
+    "build": "tsc",
+    "serve": "firebase emulators:start --only functions",
+    "shell": "firebase functions:shell",
+    "start": "npm run shell",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "engines": {
+    "node": "22"
+  },
+  "main": "lib/index.js",
+  "dependencies": {
+    "firebase-admin": "^13.0.2",
+    "firebase-functions": "^6.2.0",
+    "uuid": "^11.0.5"
+  },
+  "devDependencies": {
+    "firebase-functions-test": "^3.4.0",
+    "typescript": "^5.7.0",
+    "@types/uuid": "^10.0.0",
+    "vitest": "^3.0.0"
+  },
+  "private": true
+}

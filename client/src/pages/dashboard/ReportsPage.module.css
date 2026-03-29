@@ -1,0 +1,708 @@
+/* ---- Reports Page ---- */
+.reports {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f0f0f0;
+}
+
+/* ---- Layout: sidebar + chat card ---- */
+.reportsLayout {
+  flex: 1;
+  display: flex;
+  gap: 0;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 24px 24px 24px 24px;
+}
+
+/* ---- Sidebar ---- */
+.sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 16px;
+}
+
+.newChatBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 600;
+  background: #fff;
+  border: 1px solid #d9d9d9;
+  border-radius: 8px;
+  color: #323232;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.newChatBtn:hover {
+  background: #fafafa;
+  border-color: #bbb;
+}
+
+.convoList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.convoItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: #686868;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s;
+  position: relative;
+}
+
+.convoItem:hover {
+  background: #e8e8e8;
+  color: #323232;
+}
+
+.convoItemActive {
+  background: #e0e0e0;
+  color: #323232;
+  font-weight: 600;
+}
+
+.convoItemEditing {
+  background: #fff;
+  border: 1px solid #d9d9d9;
+  cursor: default;
+}
+
+.convoEditInput {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 12px;
+  font-family: inherit;
+  background: transparent;
+  color: #323232;
+  min-width: 0;
+}
+
+.convoName {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.convoTime {
+  font-size: 10px;
+  color: #999;
+  flex-shrink: 0;
+}
+
+.convoActions {
+  display: none;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.convoItem:hover .convoActions {
+  display: flex;
+}
+
+.convoItem:hover .convoTime {
+  display: none;
+}
+
+.convoActionBtn {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: #808080;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.convoActionBtn:hover {
+  background: #d0d0d0;
+  color: #323232;
+}
+
+.convoEmpty {
+  font-size: 12px;
+  color: #999;
+  padding: 16px 10px;
+  text-align: center;
+}
+
+/* ---- Chat Card ---- */
+.chatCard {
+  flex: 1;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  min-height: 500px;
+  overflow: hidden;
+}
+
+/* ---- Chat Area ---- */
+.chatArea {
+  flex: 1;
+  overflow-y: auto;
+  padding: 32px 32px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.chatEmpty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: #808080;
+  text-align: center;
+  padding: 40px 0;
+}
+
+.chatEmptyIcon {
+  margin-bottom: 8px;
+}
+
+.chatEmptySparkles {
+  width: 36px;
+  height: 36px;
+  color: var(--brand, #01189b);
+}
+
+.chatEmptyTitle {
+  font-size: 40px;
+  font-weight: 800;
+  color: #323232;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin-bottom: 24px;
+}
+
+.chatEmptyTitleAi {
+  color: var(--brand, #01189b);
+}
+
+.chatSuggestions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  max-width: 600px;
+  width: 100%;
+}
+
+.chatSuggestion {
+  height: 54px;
+  padding: 0 24px;
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px solid #e0e0e0;
+  background: #fff;
+  color: #444;
+  cursor: pointer;
+  transition: all 0.15s;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.04),
+    0 4px 8px rgba(0, 0, 0, 0.06),
+    0 6px 0 -3px rgba(0, 0, 0, 0.03),
+    0 8px 0 -4px rgba(0, 0, 0, 0.02);
+}
+
+.chatSuggestion:hover {
+  background: #fafafa;
+  border-color: #ccc;
+  color: #222;
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.06),
+    0 6px 12px rgba(0, 0, 0, 0.08),
+    0 6px 0 -3px rgba(0, 0, 0, 0.04),
+    0 8px 0 -4px rgba(0, 0, 0, 0.03);
+}
+
+/* ---- Chat Bottom: controls + input ---- */
+.chatBottom {
+  padding: 0 32px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ---- Controls row (duration, format) ---- */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.controlGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.controlLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: #808080;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pill {
+  height: 28px;
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid #d9d9d9;
+  background: #fff;
+  color: #686868;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 6px;
+}
+
+.pill:hover {
+  border-color: #999;
+  color: #323232;
+}
+
+.pillActive {
+  background: #111;
+  color: #fff;
+  border-color: #111;
+}
+
+.pillActive:hover {
+  background: #333;
+  border-color: #333;
+  color: #fff;
+}
+
+/* ---- Input area ---- */
+.inputArea {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.inputWrap {
+  flex: 1;
+  position: relative;
+}
+
+.inputField {
+  width: 100%;
+  min-height: 44px;
+  max-height: 120px;
+  padding: 10px 14px;
+  font-size: 13px;
+  border: 1px solid #d9d9d9;
+  border-radius: 12px;
+  outline: none;
+  resize: none;
+  font-family: inherit;
+  line-height: 1.5;
+  color: #323232;
+  transition: border-color 0.2s;
+}
+
+.inputField::placeholder {
+  color: #999;
+}
+
+.inputField:focus {
+  border-color: var(--brand, #01189b);
+}
+
+.sendBtn {
+  height: 44px;
+  width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--brand, #01189b);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+}
+
+.sendBtn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.sendBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.sendIcon {
+  width: 18px;
+  height: 18px;
+}
+
+/* ---- Message bubbles ---- */
+.message {
+  display: flex;
+  gap: 10px;
+  animation: msgFadeIn 0.2s ease;
+}
+
+@keyframes msgFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.messageUser {
+  flex-direction: row-reverse;
+}
+
+.messageAvatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--brand, #01189b);
+}
+
+.messageAvatarUser {
+  background: var(--brand, #01189b);
+  color: #fff;
+}
+
+.messageBubble {
+  max-width: 85%;
+  padding: 10px 14px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #323232;
+  border-radius: 12px;
+}
+
+.messageBubbleUser {
+  background: var(--brand, #01189b);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.messageBubbleAssistant {
+  background: #f5f5f5;
+  border-bottom-left-radius: 4px;
+}
+
+.messageBubbleError {
+  background: #fef2f2;
+  color: #ac1b11;
+  border: 1px solid #fecaca;
+}
+
+/* ---- Loading dots ---- */
+.loadingDots {
+  display: flex;
+  gap: 4px;
+  padding: 4px 0;
+}
+
+.loadingDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #999;
+  animation: dotBounce 1.2s infinite;
+}
+
+.loadingDot:nth-child(2) { animation-delay: 0.2s; }
+.loadingDot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes dotBounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
+/* ---- Report result inside message ---- */
+.reportResult {
+  margin-top: 10px;
+}
+
+.reportMeta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 10px;
+  color: #808080;
+  margin-bottom: 8px;
+}
+
+.reportMetaItem {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* ---- SQL preview ---- */
+.sqlToggle {
+  font-size: 11px;
+  font-weight: 600;
+  color: #686868;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 0;
+  transition: color 0.15s;
+}
+
+.sqlToggle:hover {
+  color: #323232;
+}
+
+.sqlBlock {
+  background: #1e1e2e;
+  color: #cdd6f4;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-family: "SF Mono", "Fira Code", monospace;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin-top: 6px;
+  line-height: 1.6;
+}
+
+/* ---- Data table ---- */
+.dataTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  margin-top: 8px;
+  border: 1px solid #e5e5e5;
+}
+
+.dataTable th {
+  background: #fafafa;
+  font-weight: 700;
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 2px solid #e5e5e5;
+  color: #323232;
+  white-space: nowrap;
+}
+
+.dataTable td {
+  padding: 5px 10px;
+  border-bottom: 1px solid #f0f0f0;
+  color: #555;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dataTable tr:hover td {
+  background: #fafafa;
+}
+
+.tableOverflow {
+  overflow-x: auto;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* ---- CSV/JSON output ---- */
+.textOutput {
+  background: #fafafa;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 11px;
+  font-family: "SF Mono", "Fira Code", monospace;
+  overflow-x: auto;
+  max-height: 400px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.6;
+  color: #323232;
+  margin-top: 8px;
+}
+
+/* ---- Chart ---- */
+.chartContainer {
+  background: #fafafa;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  padding: 20px;
+  margin-top: 8px;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chartBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.chartBarLabel {
+  width: 100px;
+  text-align: right;
+  color: #686868;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.chartBarTrack {
+  flex: 1;
+  height: 20px;
+  background: #e5e5e5;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.chartBarFill {
+  height: 100%;
+  background: var(--brand, #01189b);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.chartBarValue {
+  width: 60px;
+  font-weight: 600;
+  color: #323232;
+}
+
+/* ---- Download buttons ---- */
+.downloadRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.downloadBtn {
+  height: 28px;
+  padding: 0 12px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  border: 1px solid #d9d9d9;
+  background: #fff;
+  color: #686868;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.downloadBtn:hover {
+  border-color: #999;
+  color: #323232;
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 768px) {
+  .reportsLayout {
+    flex-direction: column;
+    padding: 12px;
+  }
+
+  .sidebar {
+    width: 100%;
+    flex-direction: row;
+    padding-right: 0;
+    padding-bottom: 12px;
+    overflow-x: auto;
+    gap: 6px;
+  }
+
+  .convoList {
+    flex-direction: row;
+    gap: 6px;
+  }
+
+  .convoItem {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .chatCard {
+    border-radius: 12px;
+  }
+
+  .chatArea {
+    padding: 20px 16px 12px;
+  }
+
+  .chatBottom {
+    padding: 0 16px 16px;
+  }
+
+  .controls {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .chatEmptyTitle {
+    font-size: 28px;
+  }
+
+  .chatSuggestions {
+    grid-template-columns: 1fr;
+  }
+
+  .chatSuggestion {
+    height: 48px;
+    font-size: 13px;
+  }
+
+  .messageBubble {
+    max-width: 95%;
+  }
+}

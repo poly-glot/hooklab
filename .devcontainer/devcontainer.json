@@ -1,0 +1,88 @@
+{
+  "name": "hooklab",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspace",
+  "shutdownAction": "stopCompose",
+
+  // Features
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true,
+      "configureZshAsDefaultShell": true,
+      "installOhMyZsh": true,
+      "username": "vscode",
+      "upgradePackages": true
+    },
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/dhoeric/features/google-cloud-cli:1": {},
+    "ghcr.io/devcontainers/features/java:1": {
+      "version": "21",
+      "jdkDistro": "tem",
+      "installMaven": false,
+      "installGradle": false
+    }
+  },
+
+  // Ports to forward from the container
+  "forwardPorts": [
+    3000,
+    5173,
+    4000,
+    5001,
+    8080,
+    9099,
+    9199
+  ],
+  "portsAttributes": {
+    "3000": { "label": "API Server", "onAutoForward": "notify" },
+    "5173": { "label": "Vite Dev Server", "onAutoForward": "openBrowser" },
+    "4000": { "label": "Firebase Emulator UI", "onAutoForward": "notify" },
+    "5001": { "label": "Firebase Functions", "onAutoForward": "silent" },
+    "8080": { "label": "Firestore Emulator", "onAutoForward": "silent" },
+    "9099": { "label": "Firebase Auth", "onAutoForward": "silent" },
+    "9199": { "label": "Firebase Storage", "onAutoForward": "silent" }
+  },
+
+  // Run after container is created (one-time setup)
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+
+  "mounts": [
+    "source=${localEnv:HOME}/.config/gcloud,target=/home/vscode/.config/gcloud,type=bind,readonly"
+  ],
+
+  "containerEnv": {
+    "FIREBASE_EMULATOR_HOST": "0.0.0.0"
+  },
+
+  "remoteUser": "vscode",
+
+  // ── VS Code configuration ──────────────────────────────────────────
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "denoland.vscode-deno",
+        "bradlc.vscode-tailwindcss",
+        "esbenp.prettier-vscode",
+        "dbaeumer.vscode-eslint",
+        "ms-azuretools.vscode-docker",
+        "toba.vsfire"
+      ],
+      "settings": {
+        "deno.enable": true,
+        "deno.enablePaths": ["./server"],
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.formatOnSave": true,
+        "[typescript]": {
+          "editor.defaultFormatter": "denoland.vscode-deno"
+        },
+        "[typescriptreact]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        }
+      }
+    }
+  }
+}

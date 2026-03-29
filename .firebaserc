@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "default": "demo-webhook",
+    "staging": "webhook-platform-stg",
+    "production": "webhook-platform-prod"
+  }
+}

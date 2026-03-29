@@ -1,0 +1,54 @@
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#ffffff', 'primaryTextColor': '#000000', 'primaryBorderColor': '#000000', 'lineColor': '#000000', 'secondaryColor': '#f5f5f5', 'tertiaryColor': '#ffffff', 'fontFamily': 'Arial', 'fontSize': '14px'}, 'themeCSS': '.edgePath .path { stroke-width: 3px !important; } .flowchart-link { stroke-width: 3px !important; } .marker { stroke-width: 2px !important; } .arrowMarkerPath { stroke-width: 2px !important; }'}}%%
+
+flowchart TB
+    subgraph Hosting["Firebase Hosting"]
+        SPA["React SPA\n(Vite build)"]
+    end
+
+    subgraph CloudRun["Cloud Run"]
+        direction TB
+        Deno["Deno + Hono"]
+        API["/api/*\nAuth, Endpoints"]
+        Webhook["/w/*\nWebhook Receiver"]
+        Sandbox["Sandbox Worker\n(script execution)"]
+        Deno --- API
+        Deno --- Webhook
+        Webhook --> Sandbox
+    end
+
+    subgraph Firebase["Firebase Services"]
+        direction TB
+        Auth["Firebase Auth\n(Google, Anonymous)"]
+        Firestore["Cloud Firestore\n(endpoints, users, executions)"]
+        Functions["Cloud Functions\n(seed, cleanup)"]
+    end
+
+    subgraph GCP["GCP Services"]
+        direction TB
+        BigQuery["BigQuery\n(execution analytics)"]
+        Gemini["Vertex AI / Gemini\n(SQL generation)"]
+    end
+
+    SPA -->|"rewrites /api/**, /w/**"| Deno
+    SPA --> Auth
+    SPA --> Firestore
+    API --> Firestore
+    Webhook --> Firestore
+    Functions --> Firestore
+    API --> BigQuery
+    API --> Gemini
+
+    style Hosting fill:#f5f5f5,stroke:#000,stroke-width:2px,color:#000
+    style CloudRun fill:#fff,stroke:#000,stroke-width:3px,color:#000
+    style Firebase fill:#f5f5f5,stroke:#000,stroke-width:2px,color:#000
+    style GCP fill:#f5f5f5,stroke:#000,stroke-width:2px,color:#000
+    style SPA fill:#fff,stroke:#000,stroke-width:2px,color:#000
+    style Deno fill:#fff,stroke:#000,stroke-width:2px,color:#000
+    style API fill:#fff,stroke:#000,stroke-width:2px,color:#000
+    style Webhook fill:#fff,stroke:#000,stroke-width:2px,color:#000
+    style Sandbox fill:#fff,stroke:#000,stroke-width:2px,color:#000
+    style Auth fill:#fff,stroke:#000,stroke-width:2px,color:#000
+    style Firestore fill:#fff,stroke:#000,stroke-width:2px,color:#000
+    style Functions fill:#fff,stroke:#000,stroke-width:2px,color:#000
+    style BigQuery fill:#fff,stroke:#000,stroke-width:2px,color:#000
+    style Gemini fill:#fff,stroke:#000,stroke-width:2px,color:#000

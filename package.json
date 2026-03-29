@@ -1,0 +1,21 @@
+{
+  "name": "webhook-platform",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "firebase emulators:exec --project demo-webhook --only auth,firestore,functions \"npm run test:all\"",
+    "test:all": "cd client && npx vitest run && cd ../functions && npm test",
+    "test:watch": "firebase emulators:exec --project demo-webhook --only auth,firestore,functions \"cd client && npx vitest\"",
+    "test:coverage": "firebase emulators:exec --project demo-webhook --only auth,firestore,functions \"cd client && npx vitest run --coverage\"",
+    "test:rules": "firebase emulators:exec --project demo-webhook --only auth,firestore \"cd client && npx vitest run --testPathPattern=firestore.rules\"",
+    "test:functions": "firebase emulators:exec --project demo-webhook --only auth,firestore,functions \"cd functions && npm test\"",
+    "start": "firebase emulators:exec --project demo-webhook \"cd client && npx vite --host --mode development\"",
+    "serve": "firebase emulators:start --project demo-webhook",
+    "build": "cd client && npm run build",
+    "install:all": "npm install && cd client && npm install && cd ../functions && npm install"
+  },
+  "devDependencies": {
+    "firebase-tools": "^13.28.0"
+  }
+}

@@ -1,0 +1,60 @@
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#ffffff', 'primaryTextColor': '#000000', 'primaryBorderColor': '#000000', 'lineColor': '#000000', 'secondaryColor': '#f5f5f5', 'tertiaryColor': '#ffffff', 'fontFamily': 'Arial', 'fontSize': '14px'}, 'themeCSS': '.edgePath .path { stroke-width: 3px !important; } .flowchart-link { stroke-width: 3px !important; } .marker { stroke-width: 2px !important; } .arrowMarkerPath { stroke-width: 2px !important; }'}}%%
+
+graph TD
+    subgraph Frontend["Frontend (React + TypeScript)"]
+        App["App.tsx\nRouter + Auth Provider"]
+        Landing["Landing Page\nMarketing / CTA"]
+        AuthPage["Auth Page\nGoogle, Guest login"]
+        Dashboard["Dashboard Page\nEndpoint listing"]
+        Detail["Endpoint Detail\nRequest inspector"]
+        ScriptEd["Script Editor\nResponse scripting"]
+        Reports["Reports Page\nAI-powered analytics"]
+    end
+
+    subgraph Backend["Backend (Deno + Hono)"]
+        AuthRoute["Auth Routes\nRegister / Login / Me"]
+        EndpointRoute["Endpoint Routes\nCRUD + Request Logs"]
+        WebhookRoute["Webhook Receiver\nCatch-all handler"]
+        ReportRoute["Report Routes\nQuery + History"]
+        ScriptRunner["Script Runner\nSandboxed Worker"]
+    end
+
+    subgraph Services["Firebase Services"]
+        FBAuth["Firebase Auth"]
+        Firestore["Cloud Firestore"]
+        Functions["Cloud Functions"]
+        Hosting["Firebase Hosting"]
+    end
+
+    subgraph AI["GCP AI + Analytics"]
+        BQ["BigQuery"]
+        Vertex["Vertex AI / Gemini"]
+    end
+
+    App --> Landing
+    App --> AuthPage
+    App --> Dashboard
+    App --> Detail
+    App --> Reports
+    Detail --> ScriptEd
+
+    Dashboard --> Firestore
+    Detail --> Firestore
+    AuthPage --> FBAuth
+    Reports --> ReportRoute
+
+    WebhookRoute --> ScriptRunner
+    WebhookRoute --> EndpointRoute
+    ReportRoute --> BQ
+    ReportRoute --> Vertex
+
+    style Frontend fill:#f5f5f5,stroke:#000,stroke-width:2px,color:#000
+    style Backend fill:#fff,stroke:#000,stroke-width:3px,color:#000
+    style Services fill:#f5f5f5,stroke:#000,stroke-width:2px,color:#000
+    style AI fill:#f5f5f5,stroke:#000,stroke-width:2px,color:#000
+    style ScriptRunner fill:#fff,stroke:#000,stroke-width:3px,color:#000
+    style WebhookRoute fill:#fff,stroke:#000,stroke-width:2px,color:#000
+    style Firestore fill:#fff,stroke:#000,stroke-width:2px,color:#000
+    style ReportRoute fill:#fff,stroke:#000,stroke-width:2px,color:#000
+    style BQ fill:#fff,stroke:#000,stroke-width:2px,color:#000
+    style Vertex fill:#fff,stroke:#000,stroke-width:2px,color:#000

@@ -1,0 +1,33 @@
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#ffffff', 'primaryTextColor': '#000000', 'primaryBorderColor': '#000000', 'lineColor': '#000000', 'actorBorder': '#000000', 'actorBkg': '#ffffff', 'actorTextColor': '#000000', 'signalColor': '#000000', 'signalTextColor': '#000000', 'noteBkgColor': '#f5f5f5', 'noteBorderColor': '#000000', 'noteTextColor': '#000000', 'activationBkgColor': '#f5f5f5', 'activationBorderColor': '#000000', 'fontFamily': 'Arial', 'fontSize': '14px'}, 'sequence': {'messageLineWidth': 3, 'actorBorderWidth': 3}, 'themeCSS': '.messageLine0, .messageLine1 { stroke-width: 3px !important; } .actor { stroke-width: 2px !important; } .note { stroke-width: 2px !important; } .loopLine { stroke-width: 2px !important; }'}}%%
+
+sequenceDiagram
+    actor User
+    participant Browser
+    participant FBAuth as Firebase Auth
+    participant Firestore
+    participant CloudRun as Cloud Run (Deno)
+    participant Worker as Sandbox Worker
+
+    User->>Browser: Open Application
+    User->>Browser: Click "Continue with Google"
+    Browser->>FBAuth: signInWithPopup()
+    FBAuth-->>Browser: Firebase User
+    Browser->>Firestore: Create/update user document
+
+    User->>Browser: Click "ADD NEW"
+    Browser->>Firestore: Create endpoint document
+    Firestore-->>Browser: Endpoint with unique ID
+    Browser-->>User: Show webhook URL
+
+    Note over User,Worker: External system sends webhook
+    User->>CloudRun: POST /w/{endpointId}
+    CloudRun->>CloudRun: Look up endpoint
+    CloudRun->>Worker: Execute user script (sandboxed)
+    Worker-->>CloudRun: {status, headers, body}
+    CloudRun->>CloudRun: Log request + response
+    CloudRun-->>User: Scripted HTTP response
+
+    User->>Browser: View endpoint detail
+    Browser->>Firestore: Fetch executions
+    Firestore-->>Browser: Request logs
+    Browser-->>User: Display headers, body, query, response

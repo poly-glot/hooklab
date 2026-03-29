@@ -1,0 +1,14 @@
+.ui-separator {
+  flex-shrink: 0;
+  background-color: hsl(var(--border));
+}
+
+.ui-separator--horizontal {
+  height: 1px;
+  width: 100%;
+}
+
+.ui-separator--vertical {
+  height: 100%;
+  width: 1px;
+}

@@ -1,0 +1,46 @@
+/* ---- Request List Item ---- */
+.request-list-item {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-bottom: 1px solid #e5e5e5;
+  cursor: pointer;
+  transition: background 0.15s;
+  background: transparent;
+}
+.request-list-item:hover { background: #fafafa; }
+.request-list-item--active { background: #fff; }
+
+.request-list-item__label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #323232;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.request-list-item__time {
+  font-size: 10px;
+  color: #323232;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.request-list-item__delete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  color: #b9b9b9;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.2s;
+}
+.request-list-item__delete:hover { color: #ac1b11; }
+.request-list-item__delete-icon { width: 14px; height: 14px; }

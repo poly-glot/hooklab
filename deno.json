@@ -1,0 +1,18 @@
+{
+  "nodeModulesDir": "auto",
+  "imports": {
+    "hono": "npm:hono@^4",
+    "hono/cors": "npm:hono@^4/cors",
+    "hono/logger": "npm:hono@^4/logger",
+    "@std/encoding/base64url": "jsr:@std/encoding@^1/base64url",
+    "@std/encoding/base64": "jsr:@std/encoding@^1/base64"
+  },
+  "tasks": {
+    "dev": "deno task dev:server & deno task dev:client",
+    "dev:server": "FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 deno run --watch --unstable-worker-options --allow-net --allow-read --allow-env server/main.ts",
+    "dev:client": "cd client && npx vite --host",
+    "build": "cd client && npx vite build",
+    "preview": "cd client && npx vite preview",
+    "setup": "cd client && npm install"
+  }
+}

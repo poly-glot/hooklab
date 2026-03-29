@@ -1,0 +1,11 @@
+.ui-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1;
+}
+.ui-label[data-disabled],
+.ui-label:has(+ :disabled),
+:global(:disabled) + .ui-label {
+  cursor: not-allowed;
+  opacity: 0.7;
+}

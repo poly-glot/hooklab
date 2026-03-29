@@ -1,0 +1,172 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── DEFAULT DENY ALL ────────────────────────────────────────────────
+    // No document is accessible unless an explicit rule below grants it.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ── Helper functions ────────────────────────────────────────────────
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAnonymous() {
+      return isAuthenticated() &&
+             request.auth.token.firebase.sign_in_provider == 'anonymous';
+    }
+
+    function isEmailVerified() {
+      return isAuthenticated() &&
+             request.auth.token.email_verified == true;
+    }
+
+    function hasValidString(field) {
+      return request.resource.data[field] is string &&
+             request.resource.data[field].size() > 0;
+    }
+
+    // Prevent field injection — ensure only allowed fields are present
+    function onlyAllowedFields(allowed) {
+      return request.resource.data.keys().hasOnly(allowed);
+    }
+
+    // ── Users collection ────────────────────────────────────────────────
+    // Users can only read/write their own document. Strict field validation.
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+
+      allow create: if isOwner(userId) &&
+                       onlyAllowedFields([
+                         'email', 'isAnonymous', 'displayName',
+                         'createdAt', 'lastLoginAt', 'endpointCount',
+                         'quotas', 'seeded'
+                       ]) &&
+                       request.resource.data.keys().hasAll([
+                         'email', 'createdAt', 'isAnonymous'
+                       ]) &&
+                       request.resource.data.email is string &&
+                       request.resource.data.isAnonymous is bool &&
+                       request.resource.data.createdAt is timestamp;
+
+      // Prevent tampering with immutable fields; block privilege escalation
+      allow update: if isOwner(userId) &&
+                       onlyAllowedFields([
+                         'email', 'isAnonymous', 'displayName',
+                         'lastLoginAt', 'endpointCount', 'quotas', 'seeded'
+                       ]) &&
+                       // createdAt is immutable
+                       !request.resource.data.diff(resource.data)
+                         .affectedKeys().hasAny(['createdAt']) &&
+                       // Cannot self-promote: quotas.maxEndpoints and
+                       // quotas.maxExecutionsPerDay are server-managed
+                       (
+                         !('quotas' in request.resource.data) ||
+                         (
+                           request.resource.data.quotas.maxEndpoints ==
+                             resource.data.quotas.maxEndpoints &&
+                           request.resource.data.quotas.maxExecutionsPerDay ==
+                             resource.data.quotas.maxExecutionsPerDay
+                         )
+                       );
+
+      allow delete: if false; // Users cannot delete their own account doc
+
+      // ── Chat conversations (per-user) ──────────────────────────────
+      match /conversations/{conversationId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         onlyAllowedFields(['name', 'createdAt', 'updatedAt']) &&
+                         hasValidString('name') &&
+                         request.resource.data.name.size() <= 200;
+        allow update: if isOwner(userId) &&
+                         onlyAllowedFields(['name', 'updatedAt']);
+        allow delete: if isOwner(userId);
+
+        match /messages/{messageId} {
+          allow read: if isOwner(userId);
+          allow create: if isOwner(userId) &&
+                           onlyAllowedFields([
+                             'role', 'content', 'timestamp',
+                             'error', 'reportData'
+                           ]) &&
+                           request.resource.data.role in ['user', 'assistant'];
+          allow update: if false;
+          allow delete: if isOwner(userId);
+        }
+      }
+    }
+
+    // ── Endpoints collection ────────────────────────────────────────────
+    // Owners can CRUD their own endpoints. Strict validation on create/update.
+    match /endpoints/{endpointId} {
+      allow read: if isAuthenticated() &&
+                     isOwner(resource.data.userId);
+
+      allow create: if isAuthenticated() &&
+                       isOwner(request.resource.data.userId) &&
+                       onlyAllowedFields([
+                         'name', 'userId', 'script', 'isActive',
+                         'defaultStatusCode', 'defaultContentType',
+                         'defaultBody', 'totalExecutions',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       hasValidString('name') &&
+                       request.resource.data.name.size() <= 100 &&
+                       // Script size limit (64 KB)
+                       (!('script' in request.resource.data) ||
+                        request.resource.data.script.size() <= 65536) &&
+                       request.resource.data.createdAt is timestamp &&
+                       // Guest users limited to 3 endpoints
+                       (!isAnonymous() ||
+                        !exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
+                        get(/databases/$(database)/documents/users/$(request.auth.uid))
+                          .data.get('endpointCount', 0) < 3);
+
+      allow update: if isOwner(resource.data.userId) &&
+                       // Cannot change ownership or creation time
+                       request.resource.data.userId == resource.data.userId &&
+                       request.resource.data.createdAt == resource.data.createdAt &&
+                       // Cannot tamper with totalExecutions (server-managed)
+                       request.resource.data.totalExecutions == resource.data.totalExecutions &&
+                       // Script size limit on updates
+                       (!('script' in request.resource.data) ||
+                        request.resource.data.script.size() <= 65536) &&
+                       // Name length limit
+                       (!('name' in request.resource.data) ||
+                        request.resource.data.name.size() <= 100);
+
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    // ── Executions collection (request logs) ────────────────────────────
+    // CLIENT: read-only (owner only). SERVER/FUNCTIONS: write via Admin SDK.
+    match /executions/{executionId} {
+      allow read: if isAuthenticated() &&
+                     isOwner(resource.data.userId);
+
+      // All writes are server-side only (Admin SDK bypasses rules)
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ── Analytics collection ────────────────────────────────────────────
+    // Read-only for authenticated users. Written by Cloud Functions only.
+    match /analytics/{date} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    // ── All other collections ───────────────────────────────────────────
+    // Explicitly deny — defense in depth against accidental collection creation
+  }
+}

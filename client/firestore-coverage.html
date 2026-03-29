@@ -1,0 +1,2156 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Firestore Rule Coverage Report</title>
+<style>
+.coverage-expr {
+  padding-bottom: 4px;
+  display: inline-block;
+  border-bottom: 3px solid black;
+  vertical-align: top;
+}
+.coverage-expr:hover {
+  background-color: rgba(255, 100, 100, 0.2);
+  cursor: default;
+  border-bottom: 3px solid red;
+}
+</style>
+
+<script>
+// Populated by the emulator at runtime
+const data = {
+  "rules": {
+    "files": [{
+      "content": "rules_version \u003d \u00272\u0027;\n\nservice cloud.firestore {\n  match /databases/{database}/documents {\n\n    // ── DEFAULT DENY ALL ────────────────────────────────────────────────\n    // No document is accessible unless an explicit rule below grants it.\n    match /{document\u003d**} {\n      allow read, write: if false;\n    }\n\n    // ── Helper functions ────────────────────────────────────────────────\n\n    function isAuthenticated() {\n      return request.auth !\u003d null;\n    }\n\n    function isOwner(userId) {\n      return isAuthenticated() \u0026\u0026 request.auth.uid \u003d\u003d userId;\n    }\n\n    function isAnonymous() {\n      return isAuthenticated() \u0026\u0026\n             request.auth.token.firebase.sign_in_provider \u003d\u003d \u0027anonymous\u0027;\n    }\n\n    function isEmailVerified() {\n      return isAuthenticated() \u0026\u0026\n             request.auth.token.email_verified \u003d\u003d true;\n    }\n\n    function hasValidString(field) {\n      return request.resource.data[field] is string \u0026\u0026\n             request.resource.data[field].size() \u003e 0;\n    }\n\n    // Prevent field injection — ensure only allowed fields are present\n    function onlyAllowedFields(allowed) {\n      return request.resource.data.keys().hasOnly(allowed);\n    }\n\n    // ── Users collection ────────────────────────────────────────────────\n    // Users can only read/write their own document. Strict field validation.\n    match /users/{userId} {\n      allow read: if isOwner(userId);\n\n      allow create: if isOwner(userId) \u0026\u0026\n                       onlyAllowedFields([\n                         \u0027email\u0027, \u0027isAnonymous\u0027, \u0027displayName\u0027,\n                         \u0027createdAt\u0027, \u0027lastLoginAt\u0027, \u0027endpointCount\u0027,\n                         \u0027quotas\u0027, \u0027seeded\u0027\n                       ]) \u0026\u0026\n                       request.resource.data.keys().hasAll([\n                         \u0027email\u0027, \u0027createdAt\u0027, \u0027isAnonymous\u0027\n                       ]) \u0026\u0026\n                       request.resource.data.email is string \u0026\u0026\n                       request.resource.data.isAnonymous is bool \u0026\u0026\n                       request.resource.data.createdAt is timestamp;\n\n      // Prevent tampering with immutable fields; block privilege escalation\n      allow update: if isOwner(userId) \u0026\u0026\n                       onlyAllowedFields([\n                         \u0027email\u0027, \u0027isAnonymous\u0027, \u0027displayName\u0027,\n                         \u0027lastLoginAt\u0027, \u0027endpointCount\u0027, \u0027quotas\u0027, \u0027seeded\u0027\n                       ]) \u0026\u0026\n                       // createdAt is immutable\n                       !request.resource.data.diff(resource.data)\n                         .affectedKeys().hasAny([\u0027createdAt\u0027]) \u0026\u0026\n                       // Cannot self-promote: quotas.maxEndpoints and\n                       // quotas.maxExecutionsPerDay are server-managed\n                       (\n                         !(\u0027quotas\u0027 in request.resource.data) ||\n                         (\n                           request.resource.data.quotas.maxEndpoints \u003d\u003d\n                             resource.data.quotas.maxEndpoints \u0026\u0026\n                           request.resource.data.quotas.maxExecutionsPerDay \u003d\u003d\n                             resource.data.quotas.maxExecutionsPerDay\n                         )\n                       );\n\n      allow delete: if false; // Users cannot delete their own account doc\n    }\n\n    // ── Endpoints collection ────────────────────────────────────────────\n    // Owners can CRUD their own endpoints. Strict validation on create/update.\n    match /endpoints/{endpointId} {\n      allow read: if isAuthenticated() \u0026\u0026\n                     isOwner(resource.data.userId);\n\n      allow create: if isAuthenticated() \u0026\u0026\n                       isOwner(request.resource.data.userId) \u0026\u0026\n                       onlyAllowedFields([\n                         \u0027name\u0027, \u0027userId\u0027, \u0027script\u0027, \u0027isActive\u0027,\n                         \u0027defaultStatusCode\u0027, \u0027defaultContentType\u0027,\n                         \u0027defaultBody\u0027, \u0027totalExecutions\u0027,\n                         \u0027createdAt\u0027, \u0027updatedAt\u0027\n                       ]) \u0026\u0026\n                       hasValidString(\u0027name\u0027) \u0026\u0026\n                       request.resource.data.name.size() \u003c\u003d 100 \u0026\u0026\n                       // Script size limit (64 KB)\n                       (!(\u0027script\u0027 in request.resource.data) ||\n                        request.resource.data.script.size() \u003c\u003d 65536) \u0026\u0026\n                       request.resource.data.createdAt is timestamp \u0026\u0026\n                       // Guest users limited to 3 endpoints\n                       (!isAnonymous() ||\n                        !exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||\n                        get(/databases/$(database)/documents/users/$(request.auth.uid))\n                          .data.get(\u0027endpointCount\u0027, 0) \u003c 3);\n\n      allow update: if isOwner(resource.data.userId) \u0026\u0026\n                       // Cannot change ownership or creation time\n                       request.resource.data.userId \u003d\u003d resource.data.userId \u0026\u0026\n                       request.resource.data.createdAt \u003d\u003d resource.data.createdAt \u0026\u0026\n                       // Cannot tamper with totalExecutions (server-managed)\n                       request.resource.data.totalExecutions \u003d\u003d resource.data.totalExecutions \u0026\u0026\n                       // Script size limit on updates\n                       (!(\u0027script\u0027 in request.resource.data) ||\n                        request.resource.data.script.size() \u003c\u003d 65536) \u0026\u0026\n                       // Name length limit\n                       (!(\u0027name\u0027 in request.resource.data) ||\n                        request.resource.data.name.size() \u003c\u003d 100);\n\n      allow delete: if isOwner(resource.data.userId);\n    }\n\n    // ── Executions collection (request logs) ────────────────────────────\n    // CLIENT: read-only (owner only). SERVER/FUNCTIONS: write via Admin SDK.\n    match /executions/{executionId} {\n      allow read: if isAuthenticated() \u0026\u0026\n                     isOwner(resource.data.userId);\n\n      // All writes are server-side only (Admin SDK bypasses rules)\n      allow create: if false;\n      allow update: if false;\n      allow delete: if false;\n    }\n\n    // ── Analytics collection ────────────────────────────────────────────\n    // Read-only for authenticated users. Written by Cloud Functions only.\n    match /analytics/{date} {\n      allow read: if isAuthenticated();\n      allow write: if false;\n    }\n\n    // ── All other collections ───────────────────────────────────────────\n    // Explicitly deny — defense in depth against accidental collection creation\n  }\n}\n"
+    }]
+  },
+  "report": [{
+    "sourcePosition": {
+      "line": 15,
+      "column": 14,
+      "currentOffset": 433,
+      "endOffset": 452
+    },
+    "children": [{
+      "sourcePosition": {
+        "line": 15,
+        "column": 14,
+        "currentOffset": 433,
+        "endOffset": 444
+      },
+      "children": [{
+        "sourcePosition": {
+          "line": 15,
+          "column": 14,
+          "currentOffset": 433,
+          "endOffset": 439
+        }
+      }]
+    }]
+  }, {
+    "sourcePosition": {
+      "line": 19,
+      "column": 14,
+      "currentOffset": 506,
+      "endOffset": 552
+    },
+    "children": [{
+      "sourcePosition": {
+        "line": 19,
+        "column": 14,
+        "currentOffset": 506,
+        "endOffset": 520
+      }
+    }, {
+      "sourcePosition": {
+        "line": 19,
+        "column": 35,
+        "currentOffset": 527,
+        "endOffset": 552
+      },
+      "children": [{
+        "sourcePosition": {
+          "line": 19,
+          "column": 35,
+          "currentOffset": 527,
+          "endOffset": 542
+        },
+        "children": [{
+          "sourcePosition": {
+            "line": 19,
+            "column": 35,
+            "currentOffset": 527,
+            "endOffset": 538
+          },
+          "children": [{
+            "sourcePosition": {
+              "line": 19,
+              "column": 35,
+              "currentOffset": 527,
+              "endOffset": 533
+            }
+          }]
+        }]
+      }, {
+        "sourcePosition": {
+          "line": 19,
+          "column": 55,
+          "currentOffset": 547,
+          "endOffset": 552
+        }
+      }]
+    }]
+  }, {
+    "sourcePosition": {
+      "line": 23,
+      "column": 14,
+      "currentOffset": 604,
+      "endOffset": 696
+    },
+    "children": [{
+      "sourcePosition": {
+        "line": 23,
+        "column": 14,
+        "currentOffset": 604,
+        "endOffset": 618
+      }
+    }, {
+      "sourcePosition": {
+        "line": 24,
+        "column": 14,
+        "currentOffset": 638,
+        "endOffset": 696
+      },
+      "children": [{
+        "sourcePosition": {
+          "line": 24,
+          "column": 14,
+          "currentOffset": 638,
+          "endOffset": 681
+        },
+        "children": [{
+          "sourcePosition": {
+            "line": 24,
+            "column": 14,
+            "currentOffset": 638,
+            "endOffset": 664
+          },
+          "children": [{
+            "sourcePosition": {
+              "line": 24,
+              "column": 14,
+              "currentOffset": 638,
+              "endOffset": 655
+            },
+            "children": [{
+              "sourcePosition": {
+                "line": 24,
+                "column": 14,
+                "currentOffset": 638,
+                "endOffset": 649
+              },
+              "children": [{
+                "sourcePosition": {
+                  "line": 24,
+                  "column": 14,
+                  "currentOffset": 638,
+                  "endOffset": 644
+                }
+              }]
+            }]
+          }]
+        }]
+      }]
+    }]
+  }, {
+    "sourcePosition": {
+      "line": 28,
+      "column": 14,
+      "currentOffset": 752,
+      "endOffset": 826
+    },
+    "children": [{
+      "sourcePosition": {
+        "line": 28,
+        "column": 14,
+        "currentOffset": 752,
+        "endOffset": 766
+      }
+    }, {
+      "sourcePosition": {
+        "line": 29,
+        "column": 14,
+        "currentOffset": 786,
+        "endOffset": 826
+      },
+      "children": [{
+        "sourcePosition": {
+          "line": 29,
+          "column": 14,
+          "currentOffset": 786,
+          "endOffset": 818
+        },
+        "children": [{
+          "sourcePosition": {
+            "line": 29,
+            "column": 14,
+            "currentOffset": 786,
+            "endOffset": 803
+          },
+          "children": [{
+            "sourcePosition": {
+              "line": 29,
+              "column": 14,
+              "currentOffset": 786,
+              "endOffset": 797
+            },
+            "children": [{
+              "sourcePosition": {
+                "line": 29,
+                "column": 14,
+                "currentOffset": 786,
+                "endOffset": 792
+              }
+            }]
+          }]
+        }]
+      }]
+    }]
+  }, {
+    "sourcePosition": {
+      "line": 33,
+      "column": 14,
+      "currentOffset": 886,
+      "endOffset": 979
+    },
+    "children": [{
+      "sourcePosition": {
+        "line": 33,
+        "column": 14,
+        "currentOffset": 886,
+        "endOffset": 923
+      },
+      "children": [{
+        "sourcePosition": {
+          "line": 33,
+          "column": 14,
+          "currentOffset": 886,
+          "endOffset": 912
+        },
+        "children": [{
+          "sourcePosition": {
+            "line": 33,
+            "column": 14,
+            "currentOffset": 886,
+            "endOffset": 906
+          },
+          "children": [{
+            "sourcePosition": {
+              "line": 33,
+              "column": 14,
+              "currentOffset": 886,
+              "endOffset": 901
+            },
+            "children": [{
+              "sourcePosition": {
+                "line": 33,
+                "column": 14,
+                "currentOffset": 886,
+                "endOffset": 892
+              }
+            }]
+          }]
+        }, {
+          "sourcePosition": {
+            "line": 33,
+            "column": 36,
+            "currentOffset": 908,
+            "endOffset": 912
+          }
+        }]
+      }]
+    }, {
+      "sourcePosition": {
+        "line": 34,
+        "column": 14,
+        "currentOffset": 941,
+        "endOffset": 979
+      },
+      "children": [{
+        "sourcePosition": {
+          "line": 34,
+          "column": 14,
+          "currentOffset": 941,
+          "endOffset": 973
+        },
+        "children": [{
+          "sourcePosition": {
+            "line": 34,
+            "column": 14,
+            "currentOffset": 941,
+            "endOffset": 967
+          },
+          "children": [{
+            "sourcePosition": {
+              "line": 34,
+              "column": 14,
+              "currentOffset": 941,
+              "endOffset": 961
+            },
+            "children": [{
+              "sourcePosition": {
+                "line": 34,
+                "column": 14,
+                "currentOffset": 941,
+                "endOffset": 956
+              },
+              "children": [{
+                "sourcePosition": {
+                  "line": 34,
+                  "column": 14,
+                  "currentOffset": 941,
+                  "endOffset": 947
+                }
+              }]
+            }]
+          }, {
+            "sourcePosition": {
+              "line": 34,
+              "column": 36,
+              "currentOffset": 963,
+              "endOffset": 967
+            }
+          }]
+        }]
+      }]
+    }]
+  }, {
+    "sourcePosition": {
+      "line": 39,
+      "column": 14,
+      "currentOffset": 1116,
+      "endOffset": 1159
+    },
+    "children": [{
+      "sourcePosition": {
+        "line": 39,
+        "column": 14,
+        "currentOffset": 1116,
+        "endOffset": 1141
+      },
+      "children": [{
+        "sourcePosition": {
+          "line": 39,
+          "column": 14,
+          "currentOffset": 1116,
+          "endOffset": 1136
+        },
+        "children": [{
+          "sourcePosition": {
+            "line": 39,
+            "column": 14,
+            "currentOffset": 1116,
+            "endOffset": 1131
+          },
+          "children": [{
+            "sourcePosition": {
+              "line": 39,
+              "column": 14,
+              "currentOffset": 1116,
+              "endOffset": 1122
+            }
+          }]
+        }]
+      }]
+    }, {
+      "sourcePosition": {
+        "line": 39,
+        "column": 51,
+        "currentOffset": 1153,
+        "endOffset": 1159
+      }
+    }]
+  }, {
+    "sourcePosition": {
+      "line": 45,
+      "column": 22,
+      "currentOffset": 1373,
+      "endOffset": 1386
+    },
+    "children": [{
+      "sourcePosition": {
+        "line": 45,
+        "column": 30,
+        "currentOffset": 1381,
+        "endOffset": 1386
+      }
+    }]
+  }, {
+    "sourcePosition": {
+      "line": 47,
+      "column": 24,
+      "currentOffset": 1414,
+      "endOffset": 2032
+    },
+    "children": [{
+      "sourcePosition": {
+        "line": 47,
+        "column": 24,
+        "currentOffset": 1414,
+        "endOffset": 1961
+      },
+      "children": [{
+        "sourcePosition": {
+          "line": 47,
+          "column": 24,
+          "currentOffset": 1414,
+          "endOffset": 1893
+        },
+        "children": [{
+          "sourcePosition": {
+            "line": 47,
+            "column": 24,
+            "currentOffset": 1414,
+            "endOffset": 1803
+          },
+          "children": [{
+            "sourcePosition": {
+              "line": 47,
+              "column": 24,
+              "currentOffset": 1414,
+              "endOffset": 1652
+            },
+            "children": [{
+              "sourcePosition": {
+                "line": 47,
+                "column": 24,
+                "currentOffset": 1414,
+                "endOffset": 1427
+              },
+              "children": [{
+                "sourcePosition": {
+                  "line": 47,
+                  "column": 32,
+                  "currentOffset": 1422,
+                  "endOffset": 1427
+                }
+              }]
+            }, {
+              "sourcePosition": {
+                "line": 48,
+                "column": 24,
+                "currentOffset": 1456,
+                "endOffset": 1652
+              },
+              "children": [{
+                "sourcePosition": {
+                  "line": 48,
+                  "column": 42,
+                  "currentOffset": 1474,
+                  "endOffset": 1652
+                }
+              }]
+            }]
+          }, {
+            "sourcePosition": {
+              "line": 53,
+              "column": 24,
+              "currentOffset": 1706,
+              "endOffset": 1803
+            },
+            "children": [{
+              "sourcePosition": {
+                "line": 53,
+                "column": 24,
+                "currentOffset": 1706,
+                "endOffset": 1731
+              },
+              "children": [{
+                "sourcePosition": {
+                  "line": 53,
+                  "column": 24,
+                  "currentOffset": 1706,
+                  "endOffset": 1726
+                },
+                "children": [{
+                  "sourcePosition": {
+                    "line": 53,
+                    "column": 24,
+                    "currentOffset": 1706,
+                    "endOffset": 1721
+                  },
+                  "children": [{
+                    "sourcePosition": {
+                      "line": 53,
+                      "column": 24,
+                      "currentOffset": 1706,
+                      "endOffset": 1712
+                    }
+                  }]
+                }]
+              }]
+            }, {
+              "sourcePosition": {
+                "line": 53,
+                "column": 60,
+                "currentOffset": 1742,
+                "endOffset": 1803
+              }
+            }]
+          }]
+        }, {
+          "sourcePosition": {
+            "line": 56,
+            "column": 24,
+            "currentOffset": 1857,
+            "endOffset": 1893
+          },
+          "children": [{
+            "sourcePosition": {
+              "line": 56,
+              "column": 24,
+              "currentOffset": 1857,
+              "endOffset": 1883
+            },
+            "children": [{
+              "sourcePosition": {
+                "line": 56,
+                "column": 24,
+                "currentOffset": 1857,
+                "endOffset": 1877
+              },
+              "children": [{
+                "sourcePosition": {
+                  "line": 56,
+                  "column": 24,
+                  "currentOffset": 1857,
+                  "endOffset": 1872
+                },
+                "children": [{
+                  "sourcePosition": {
+                    "line": 56,
+                    "column": 24,
+                    "currentOffset": 1857,
+                    "endOffset": 1863
+                  }
+                }]
+              }]
+            }]
+          }]
+        }]
+      }, {
+        "sourcePosition": {
+          "line": 57,
+          "column": 24,
+          "currentOffset": 1921,
+          "endOffset": 1961
+        },
+        "children": [{
+          "sourcePosition": {
+            "line": 57,
+            "column": 24,
+            "currentOffset": 1921,
+            "endOffset": 1953
+          },
+          "children": [{
+            "sourcePosition": {
+              "line": 57,
+              "column": 24,
+              "currentOffset": 1921,
+              "endOffset": 1941
+            },
+            "children": [{
+              "sourcePosition": {
+                "line": 57,
+                "column": 24,
+                "currentOffset": 1921,
+                "endOffset": 1936
+              },
+              "children": [{
+                "sourcePosition": {
+                  "line": 57,
+                  "column": 24,
+                  "currentOffset": 1921,
+                  "endOffset": 1927
+                }
+              }]
+            }]
+          }]
+        }]
+      }]
+    }, {
+      "sourcePosition": {
+        "line": 58,
+        "column": 24,
+        "currentOffset": 1989,
+        "endOffset": 2032
+      },
+      "children": [{
+        "sourcePosition": {
+          "line": 58,
+          "column": 24,
+          "currentOffset": 1989,
+          "endOffset": 2019
+        },
+        "children": [{
+          "sourcePosition": {
+            "line": 58,
+            "column": 24,
+            "currentOffset": 1989,
+            "endOffset": 2009
+          },
+          "children": [{
+            "sourcePosition": {
+              "line": 58,
+              "column": 24,
+              "currentOffset": 1989,
+              "endOffset": 2004
+            },
+            "children": [{
+              "sourcePosition": {
+                "line": 58,
+                "column": 24,
+                "currentOffset": 1989,
+                "endOffset": 1995
+              }
+            }]
+          }]
+        }]
+      }]
+    }]
+  }, {
+    "sourcePosition": {
+      "line": 61,
+      "column": 24,
+      "currentOffset": 2136,
+      "endOffset": 3093
+    },
+    "children": [{
+      "sourcePosition": {
+        "line": 61,
+        "column": 24,
+        "currentOffset": 2136,
+        "endOffset": 2541
+      },
+      "children": [{
+        "sourcePosition": {
+          "line": 61,
+          "column": 24,
+          "currentOffset": 2136,
+          "endOffset": 2336
+        },
+        "children": [{
+          "sourcePosition": {
+            "line": 61,
+            "column": 24,
+            "currentOffset": 2136,
+            "endOffset": 2149
+          },
+          "children": [{
+            "sourcePosition": {
+              "line": 61,
+              "column": 32,
+              "currentOffset": 2144,
+              "endOffset": 2149
+            }
+          }]
+        }, {
+          "sourcePosition": {
+            "line": 62,
+            "column": 24,
+            "currentOffset": 2178,
+            "endOffset": 2336
+          },
+          "children": [{
+            "sourcePosition": {
+              "line": 62,
+              "column": 42,
+              "currentOffset": 2196,
+              "endOffset": 2336
+            }
+          }]
+        }]
+      }, {
+        "sourcePosition": {
+          "line": 67,
+          "column": 24,
+          "currentOffset": 2439,
+          "endOffset": 2541
+        },
+        "children": [{
+          "sourcePosition": {
+            "line": 67,
+            "column": 25,
+            "currentOffset": 2440,
+            "endOffset": 2541
+          },
+          "children": [{
+            "sourcePosition": {
+              "line": 67,
+              "column": 25,
+              "currentOffset": 2440,
+              "endOffset": 2519
+            },
+            "children": [{
+              "sourcePosition": {
+                "line": 67,
+                "column": 25,
+                "currentOffset": 2440,
+                "endOffset": 2479
+              },
+              "children": [{
+                "sourcePosition": {
+                  "line": 67,
+                  "column": 25,
+                  "currentOffset": 2440,
+                  "endOffset": 2460
+                },
+                "children": [{
+                  "sourcePosition": {
+                    "line": 67,
+                    "column": 25,
+                    "currentOffset": 2440,
+                    "endOffset": 2455
+                  },
+                  "children": [{
+                    "sourcePosition": {
+                      "line": 67,
+                      "column": 25,
+                      "currentOffset": 2440,
+                      "endOffset": 2446
+                    }
+                  }]
+                }]
+              }, {
+                "sourcePosition": {
+                  "line": 67,
+                  "column": 52,
+                  "currentOffset": 2467,
+                  "endOffset": 2479
+                },
+                "children": [{
+                  "sourcePosition": {
+                    "line": 67,
+                    "column": 52,
+                    "currentOffset": 2467,
+                    "endOffset": 2474
+                  }
+                }]
+              }]
+            }]
+          }, {
+            "sourcePosition": {
+              "line": 68,
+              "column": 49,
+              "currentOffset": 2530,
+              "endOffset": 2541
+            }
+          }]
+        }]
+      }]
+    }, {
+      "sourcePosition": {
+        "line": 71,
+        "column": 24,
+        "currentOffset": 2714,
+        "endOffset": 3093
+      },
+      "children": [{
+        "sourcePosition": {
+          "line": 72,
+          "column": 26,
+          "currentOffset": 2741,
+          "endOffset": 2775
+        },
+        "children": [{
+          "sourcePosition": {
+            "line": 72,
+            "column": 27,
+            "currentOffset": 2742,
+            "endOffset": 2775
+          },
+          "children": [{
+            "sourcePosition": {
+              "line": 72,
+              "column": 40,
+              "currentOffset": 2755,
+              "endOffset": 2775
+            },
+            "children": [{
+              "sourcePosition": {
+                "line": 72,
+                "column": 40,
+                "currentOffset": 2755,
+                "endOffset": 2770
+              },
+              "children": [{
+                "sourcePosition": {
+                  "line": 72,
+                  "column": 40,
+                  "currentOffset": 2755,
+                  "endOffset": 2761
+                }
+              }]
+            }]
+          }]
+        }]
+      }, {
+        "sourcePosition": {
+          "line": 73,
+          "column": 26,
+          "currentOffset": 2806,
+          "endOffset": 3093
+        },
+        "children": [{
+          "sourcePosition": {
+            "line": 74,
+            "column": 28,
+            "currentOffset": 2835,
+            "endOffset": 2941
+          },
+          "children": [{
+            "sourcePosition": {
+              "line": 74,
+              "column": 28,
+              "currentOffset": 2835,
+              "endOffset": 2875
+            },
+            "children": [{
+              "sourcePosition": {
+                "line": 74,
+                "column": 28,
+                "currentOffset": 2835,
+                "endOffset": 2862
+              },
+              "children": [{
+                "sourcePosition": {
+                  "line": 74,
+                  "column": 28,
+                  "currentOffset": 2835,
+                  "endOffset": 2855
+                },
+                "children": [{
+                  "sourcePosition": {
+                    "line": 74,
+                    "column": 28,
+                    "currentOffset": 2835,
+                    "endOffset": 2850
+                  },
+                  "children": [{
+                    "sourcePosition": {
+                      "line": 74,
+                      "column": 28,
+                      "currentOffset": 2835,
+                      "endOffset": 2841
+                    }
+                  }]
+                }]
+              }]
+            }]
+          }, {
+            "sourcePosition": {
+              "line": 75,
+              "column": 30,
+              "currentOffset": 2909,
+              "endOffset": 2941
+            },
+            "children": [{
+              "sourcePosition": {
+                "line": 75,
+                "column": 30,
+                "currentOffset": 2909,
+                "endOffset": 2928
+              },
+              "children": [{
+                "sourcePosition": {
+                  "line": 75,
+                  "column": 30,
+                  "currentOffset": 2909,
+                  "endOffset": 2921
+                },
+                "children": [{
+                  "sourcePosition": {
+                    "line": 75,
+                    "column": 30,
+                    "currentOffset": 2909,
+                    "endOffset": 2916
+                  }
+                }]
+              }]
+            }]
+          }]
+        }, {
+          "sourcePosition": {
+            "line": 76,
+            "column": 28,
+            "currentOffset": 2973,
+            "endOffset": 3093
+          },
+          "children": [{
+            "sourcePosition": {
+              "line": 76,
+              "column": 28,
+              "currentOffset": 2973,
+              "endOffset": 3020
+            },
+            "children": [{
+              "sourcePosition": {
+                "line": 76,
+                "column": 28,
+                "currentOffset": 2973,
+                "endOffset": 3000
+              },
+              "children": [{
+                "sourcePosition": {
+                  "line": 76,
+                  "column": 28,
+                  "currentOffset": 2973,
+                  "endOffset": 2993
+                },
+                "children": [{
+                  "sourcePosition": {
+                    "line": 76,
+                    "column": 28,
+                    "currentOffset": 2973,
+                    "endOffset": 2988
+                  },
+                  "children": [{
+                    "sourcePosition": {
+                      "line": 76,
+                      "column": 28,
+                      "currentOffset": 2973,
+                      "endOffset": 2979
+                    }
+                  }]
+                }]
+              }]
+            }]
+          }, {
+            "sourcePosition": {
+              "line": 77,
+              "column": 30,
+              "currentOffset": 3054,
+              "endOffset": 3093
+            },
+            "children": [{
+              "sourcePosition": {
+                "line": 77,
+                "column": 30,
+                "currentOffset": 3054,
+                "endOffset": 3073
+              },
+              "children": [{
+                "sourcePosition": {
+                  "line": 77,
+                  "column": 30,
+                  "currentOffset": 3054,
+                  "endOffset": 3066
+                },
+                "children": [{
+                  "sourcePosition": {
+                    "line": 77,
+                    "column": 30,
+                    "currentOffset": 3054,
+                    "endOffset": 3061
+                  }
+                }]
+              }]
+            }]
+          }]
+        }]
+      }]
+    }]
+  }, {
+    "sourcePosition": {
+      "line": 87,
+      "column": 22,
+      "currentOffset": 3444,
+      "endOffset": 3513
+    },
+    "children": [{
+      "sourcePosition": {
+        "line": 87,
+        "column": 22,
+        "currentOffset": 3444,
+        "endOffset": 3458
+      }
+    }, {
+      "sourcePosition": {
+        "line": 88,
+        "column": 22,
+        "currentOffset": 3486,
+        "endOffset": 3513
+      },
+      "children": [{
+        "sourcePosition": {
+          "line": 88,
+          "column": 30,
+          "currentOffset": 3494,
+          "endOffset": 3513
+        },
+        "children": [{
+          "sourcePosition": {
+            "line": 88,
+            "column": 30,
+            "currentOffset": 3494,
+            "endOffset": 3506
+          },
+          "children": [{
+            "sourcePosition": {
+              "line": 88,
+              "column": 30,
+              "currentOffset": 3494,
+              "endOffset": 3501
+            }
+          }]
+        }]
+      }]
+    }]
+  }, {
+    "sourcePosition": {
+      "line": 90,
+      "column": 24,
+      "currentOffset": 3541,
+      "endOffset": 4660
+    },
+    "children": [{
+      "sourcePosition": {
+        "line": 90,
+        "column": 24,
+        "currentOffset": 3541,
+        "endOffset": 4311
+      },
+      "children": [{
+        "sourcePosition": {
+          "line": 90,
+          "column": 24,
+          "currentOffset": 3541,
+          "endOffset": 4239
+        },
+        "children": [{
+          "sourcePosition": {
+            "line": 90,
+            "column": 24,
+            "currentOffset": 3541,
+            "endOffset": 4051
+          },
+          "children": [{
+            "sourcePosition": {
+              "line": 90,
+              "column": 24,
+              "currentOffset": 3541,
+              "endOffset": 3983
+            },
+            "children": [{
+              "sourcePosition": {
+                "line": 90,
+                "column": 24,
+                "currentOffset": 3541,
+                "endOffset": 3909
+              },
+              "children": [{
+                "sourcePosition": {
+                  "line": 90,
+                  "column": 24,
+                  "currentOffset": 3541,
+                  "endOffset": 3620
+                },
+                "children": [{
+                  "sourcePosition": {
+                    "line": 90,
+                    "column": 24,
+                    "currentOffset": 3541,
+                    "endOffset": 3555
+                  }
+                }, {
+                  "sourcePosition": {
+                    "line": 91,
+                    "column": 24,
+                    "currentOffset": 3585,
+                    "endOffset": 3620
+                  },
+                  "children": [{
+                    "sourcePosition": {
+                      "line": 91,
+                      "column": 32,
+                      "currentOffset": 3593,
+                      "endOffset": 3620
+                    },
+                    "children": [{
+                      "sourcePosition": {
+                        "line": 91,
+                        "column": 32,
+                        "currentOffset": 3593,
+                        "endOffset": 3613
+                      },
+                      "children": [{
+                        "sourcePosition": {
+                          "line": 91,
+                          "column": 32,
+                          "currentOffset": 3593,
+                          "endOffset": 3608
+                        },
+                        "children": [{
+                          "sourcePosition": {
+                            "line": 91,
+                            "column": 32,
+                            "currentOffset": 3593,
+                            "endOffset": 3599
+                          }
+                        }]
+                      }]
+                    }]
+                  }]
+                }]
+              }, {
+                "sourcePosition": {
+                  "line": 92,
+                  "column": 24,
+                  "currentOffset": 3649,
+                  "endOffset": 3909
+                },
+                "children": [{
+                  "sourcePosition": {
+                    "line": 92,
+                    "column": 42,
+                    "currentOffset": 3667,
+                    "endOffset": 3909
+                  }
+                }]
+              }]
+            }, {
+              "sourcePosition": {
+                "line": 98,
+                "column": 24,
+                "currentOffset": 3963,
+                "endOffset": 3983
+              }
+            }]
+          }, {
+            "sourcePosition": {
+              "line": 99,
+              "column": 24,
+              "currentOffset": 4012,
+              "endOffset": 4051
+            },
+            "children": [{
+              "sourcePosition": {
+                "line": 99,
+                "column": 24,
+                "currentOffset": 4012,
+                "endOffset": 4042
+              },
+              "children": [{
+                "sourcePosition": {
+                  "line": 99,
+                  "column": 24,
+                  "currentOffset": 4012,
+                  "endOffset": 4037
+                },
+                "children": [{
+                  "sourcePosition": {
+                    "line": 99,
+                    "column": 24,
+                    "currentOffset": 4012,
+                    "endOffset": 4032
+                  },
+                  "children": [{
+                    "sourcePosition": {
+                      "line": 99,
+                      "column": 24,
+                      "currentOffset": 4012,
+                      "endOffset": 4027
+                    },
+                    "children": [{
+                      "sourcePosition": {
+                        "line": 99,
+                        "column": 24,
+                        "currentOffset": 4012,
+                        "endOffset": 4018
+                      }
+                    }]
+                  }]
+                }]
+              }]
+            }]
+          }]
+        }, {
+          "sourcePosition": {
+            "line": 101,
+            "column": 24,
+            "currentOffset": 4131,
+            "endOffset": 4239
+          },
+          "children": [{
+            "sourcePosition": {
+              "line": 101,
+              "column": 25,
+              "currentOffset": 4132,
+              "endOffset": 4166
+            },
+            "children": [{
+              "sourcePosition": {
+                "line": 101,
+                "column": 26,
+                "currentOffset": 4133,
+                "endOffset": 4166
+              },
+              "children": [{
+                "sourcePosition": {
+                  "line": 101,
+                  "column": 39,
+                  "currentOffset": 4146,
+                  "endOffset": 4166
+                },
+                "children": [{
+                  "sourcePosition": {
+                    "line": 101,
+                    "column": 39,
+                    "currentOffset": 4146,
+                    "endOffset": 4161
+                  },
+                  "children": [{
+                    "sourcePosition": {
+                      "line": 101,
+                      "column": 39,
+                      "currentOffset": 4146,
+                      "endOffset": 4152
+                    }
+                  }]
+                }]
+              }]
+            }]
+          }, {
+            "sourcePosition": {
+              "line": 102,
+              "column": 25,
+              "currentOffset": 4196,
+              "endOffset": 4239
+            },
+            "children": [{
+              "sourcePosition": {
+                "line": 102,
+                "column": 25,
+                "currentOffset": 4196,
+                "endOffset": 4228
+              },
+              "children": [{
+                "sourcePosition": {
+                  "line": 102,
+                  "column": 25,
+                  "currentOffset": 4196,
+                  "endOffset": 4223
+                },
+                "children": [{
+                  "sourcePosition": {
+                    "line": 102,
+                    "column": 25,
+                    "currentOffset": 4196,
+                    "endOffset": 4216
+                  },
+                  "children": [{
+                    "sourcePosition": {
+                      "line": 102,
+                      "column": 25,
+                      "currentOffset": 4196,
+                      "endOffset": 4211
+                    },
+                    "children": [{
+                      "sourcePosition": {
+                        "line": 102,
+                        "column": 25,
+                        "currentOffset": 4196,
+                        "endOffset": 4202
+                      }
+                    }]
+                  }]
+                }]
+              }]
+            }]
+          }]
+        }]
+      }, {
+        "sourcePosition": {
+          "line": 103,
+          "column": 24,
+          "currentOffset": 4268,
+          "endOffset": 4311
+        },
+        "children": [{
+          "sourcePosition": {
+            "line": 103,
+            "column": 24,
+            "currentOffset": 4268,
+            "endOffset": 4298
+          },
+          "children": [{
+            "sourcePosition": {
+              "line": 103,
+              "column": 24,
+              "currentOffset": 4268,
+              "endOffset": 4288
+            },
+            "children": [{
+              "sourcePosition": {
+                "line": 103,
+                "column": 24,
+                "currentOffset": 4268,
+                "endOffset": 4283
+              },
+              "children": [{
+                "sourcePosition": {
+                  "line": 103,
+                  "column": 24,
+                  "currentOffset": 4268,
+                  "endOffset": 4274
+                }
+              }]
+            }]
+          }]
+        }]
+      }]
+    }, {
+      "sourcePosition": {
+        "line": 105,
+        "column": 24,
+        "currentOffset": 4400,
+        "endOffset": 4660
+      },
+      "children": [{
+        "sourcePosition": {
+          "line": 105,
+          "column": 25,
+          "currentOffset": 4401,
+          "endOffset": 4507
+        },
+        "children": [{
+          "sourcePosition": {
+            "line": 105,
+            "column": 25,
+            "currentOffset": 4401,
+            "endOffset": 4412
+          },
+          "children": [{
+            "sourcePosition": {
+              "line": 105,
+              "column": 26,
+              "currentOffset": 4402,
+              "endOffset": 4412
+            }
+          }]
+        }, {
+          "sourcePosition": {
+            "line": 106,
+            "column": 25,
+            "currentOffset": 4443,
+            "endOffset": 4507
+          },
+          "children": [{
+            "sourcePosition": {
+              "line": 106,
+              "column": 26,
+              "currentOffset": 4444,
+              "endOffset": 4507
+            },
+            "children": [{
+              "sourcePosition": {
+                "line": 106,
+                "column": 33,
+                "currentOffset": 4451,
+                "endOffset": 4507
+              },
+              "children": [{
+                "sourcePosition": {
+                  "line": 106,
+                  "column": 46,
+                  "currentOffset": 4464,
+                  "endOffset": 4471
+                }
+              }, {
+                "sourcePosition": {
+                  "line": 106,
+                  "column": 74,
+                  "currentOffset": 4492,
+                  "endOffset": 4507
+                },
+                "children": [{
+                  "sourcePosition": {
+                    "line": 106,
+                    "column": 74,
+                    "currentOffset": 4492,
+                    "endOffset": 4503
+                  },
+                  "children": [{
+                    "sourcePosition": {
+                      "line": 106,
+                      "column": 74,
+                      "currentOffset": 4492,
+                      "endOffset": 4498
+                    }
+                  }]
+                }]
+              }]
+            }]
+          }]
+        }]
+      }, {
+        "sourcePosition": {
+          "line": 107,
+          "column": 25,
+          "currentOffset": 4538,
+          "endOffset": 4660
+        },
+        "children": [{
+          "sourcePosition": {
+            "line": 107,
+            "column": 25,
+            "currentOffset": 4538,
+            "endOffset": 4655
+          },
+          "children": [{
+            "sourcePosition": {
+              "line": 107,
+              "column": 25,
+              "currentOffset": 4538,
+              "endOffset": 4632
+            },
+            "children": [{
+              "sourcePosition": {
+                "line": 107,
+                "column": 25,
+                "currentOffset": 4538,
+                "endOffset": 4598
+              },
+              "children": [{
+                "sourcePosition": {
+                  "line": 107,
+                  "column": 29,
+                  "currentOffset": 4542,
+                  "endOffset": 4598
+                },
+                "children": [{
+                  "sourcePosition": {
+                    "line": 107,
+                    "column": 42,
+                    "currentOffset": 4555,
+                    "endOffset": 4562
+                  }
+                }, {
+                  "sourcePosition": {
+                    "line": 107,
+                    "column": 70,
+                    "currentOffset": 4583,
+                    "endOffset": 4598
+                  },
+                  "children": [{
+                    "sourcePosition": {
+                      "line": 107,
+                      "column": 70,
+                      "currentOffset": 4583,
+                      "endOffset": 4594
+                    },
+                    "children": [{
+                      "sourcePosition": {
+                        "line": 107,
+                        "column": 70,
+                        "currentOffset": 4583,
+                        "endOffset": 4589
+                      }
+                    }]
+                  }]
+                }]
+              }]
+            }]
+          }]
+        }]
+      }]
+    }]
+  }, {
+    "sourcePosition": {
+      "line": 110,
+      "column": 24,
+      "currentOffset": 4688,
+      "endOffset": 5488
+    },
+    "children": [{
+      "sourcePosition": {
+        "line": 110,
+        "column": 24,
+        "currentOffset": 4688,
+        "endOffset": 5313
+      },
+      "children": [{
+        "sourcePosition": {
+          "line": 110,
+          "column": 24,
+          "currentOffset": 4688,
+          "endOffset": 5122
+        },
+        "children": [{
+          "sourcePosition": {
+            "line": 110,
+            "column": 24,
+            "currentOffset": 4688,
+            "endOffset": 4947
+          },
+          "children": [{
+            "sourcePosition": {
+              "line": 110,
+              "column": 24,
+              "currentOffset": 4688,
+              "endOffset": 4862
+            },
+            "children": [{
+              "sourcePosition": {
+                "line": 110,
+                "column": 24,
+                "currentOffset": 4688,
+                "endOffset": 4715
+              },
+              "children": [{
+                "sourcePosition": {
+                  "line": 110,
+                  "column": 32,
+                  "currentOffset": 4696,
+                  "endOffset": 4715
+                },
+                "children": [{
+                  "sourcePosition": {
+                    "line": 110,
+                    "column": 32,
+                    "currentOffset": 4696,
+                    "endOffset": 4708
+                  },
+                  "children": [{
+                    "sourcePosition": {
+                      "line": 110,
+                      "column": 32,
+                      "currentOffset": 4696,
+                      "endOffset": 4703
+                    }
+                  }]
+                }]
+              }]
+            }, {
+              "sourcePosition": {
+                "line": 112,
+                "column": 24,
+                "currentOffset": 4811,
+                "endOffset": 4862
+              },
+              "children": [{
+                "sourcePosition": {
+                  "line": 112,
+                  "column": 24,
+                  "currentOffset": 4811,
+                  "endOffset": 4838
+                },
+                "children": [{
+                  "sourcePosition": {
+                    "line": 112,
+                    "column": 24,
+                    "currentOffset": 4811,
+                    "endOffset": 4831
+                  },
+                  "children": [{
+                    "sourcePosition": {
+                      "line": 112,
+                      "column": 24,
+                      "currentOffset": 4811,
+                      "endOffset": 4826
+                    },
+                    "children": [{
+                      "sourcePosition": {
+                        "line": 112,
+                        "column": 24,
+                        "currentOffset": 4811,
+                        "endOffset": 4817
+                      }
+                    }]
+                  }]
+                }]
+              }, {
+                "sourcePosition": {
+                  "line": 112,
+                  "column": 56,
+                  "currentOffset": 4843,
+                  "endOffset": 4862
+                },
+                "children": [{
+                  "sourcePosition": {
+                    "line": 112,
+                    "column": 56,
+                    "currentOffset": 4843,
+                    "endOffset": 4855
+                  },
+                  "children": [{
+                    "sourcePosition": {
+                      "line": 112,
+                      "column": 56,
+                      "currentOffset": 4843,
+                      "endOffset": 4850
+                    }
+                  }]
+                }]
+              }]
+            }]
+          }, {
+            "sourcePosition": {
+              "line": 113,
+              "column": 24,
+              "currentOffset": 4890,
+              "endOffset": 4947
+            },
+            "children": [{
+              "sourcePosition": {
+                "line": 113,
+                "column": 24,
+                "currentOffset": 4890,
+                "endOffset": 4920
+              },
+              "children": [{
+                "sourcePosition": {
+                  "line": 113,
+                  "column": 24,
+                  "currentOffset": 4890,
+                  "endOffset": 4910
+                },
+                "children": [{
+                  "sourcePosition": {
+                    "line": 113,
+                    "column": 24,
+                    "currentOffset": 4890,
+                    "endOffset": 4905
+                  },
+                  "children": [{
+                    "sourcePosition": {
+                      "line": 113,
+                      "column": 24,
+                      "currentOffset": 4890,
+                      "endOffset": 4896
+                    }
+                  }]
+                }]
+              }]
+            }, {
+              "sourcePosition": {
+                "line": 113,
+                "column": 59,
+                "currentOffset": 4925,
+                "endOffset": 4947
+              },
+              "children": [{
+                "sourcePosition": {
+                  "line": 113,
+                  "column": 59,
+                  "currentOffset": 4925,
+                  "endOffset": 4937
+                },
+                "children": [{
+                  "sourcePosition": {
+                    "line": 113,
+                    "column": 59,
+                    "currentOffset": 4925,
+                    "endOffset": 4932
+                  }
+                }]
+              }]
+            }]
+          }]
+        }, {
+          "sourcePosition": {
+            "line": 115,
+            "column": 24,
+            "currentOffset": 5053,
+            "endOffset": 5122
+          },
+          "children": [{
+            "sourcePosition": {
+              "line": 115,
+              "column": 24,
+              "currentOffset": 5053,
+              "endOffset": 5089
+            },
+            "children": [{
+              "sourcePosition": {
+                "line": 115,
+                "column": 24,
+                "currentOffset": 5053,
+                "endOffset": 5073
+              },
+              "children": [{
+                "sourcePosition": {
+                  "line": 115,
+                  "column": 24,
+                  "currentOffset": 5053,
+                  "endOffset": 5068
+                },
+                "children": [{
+                  "sourcePosition": {
+                    "line": 115,
+                    "column": 24,
+                    "currentOffset": 5053,
+                    "endOffset": 5059
+                  }
+                }]
+              }]
+            }]
+          }, {
+            "sourcePosition": {
+              "line": 115,
+              "column": 65,
+              "currentOffset": 5094,
+              "endOffset": 5122
+            },
+            "children": [{
+              "sourcePosition": {
+                "line": 115,
+                "column": 65,
+                "currentOffset": 5094,
+                "endOffset": 5106
+              },
+              "children": [{
+                "sourcePosition": {
+                  "line": 115,
+                  "column": 65,
+                  "currentOffset": 5094,
+                  "endOffset": 5101
+                }
+              }]
+            }]
+          }]
+        }]
+      }, {
+        "sourcePosition": {
+          "line": 117,
+          "column": 24,
+          "currentOffset": 5205,
+          "endOffset": 5313
+        },
+        "children": [{
+          "sourcePosition": {
+            "line": 117,
+            "column": 25,
+            "currentOffset": 5206,
+            "endOffset": 5240
+          },
+          "children": [{
+            "sourcePosition": {
+              "line": 117,
+              "column": 26,
+              "currentOffset": 5207,
+              "endOffset": 5240
+            },
+            "children": [{
+              "sourcePosition": {
+                "line": 117,
+                "column": 39,
+                "currentOffset": 5220,
+                "endOffset": 5240
+              },
+              "children": [{
+                "sourcePosition": {
+                  "line": 117,
+                  "column": 39,
+                  "currentOffset": 5220,
+                  "endOffset": 5235
+                },
+                "children": [{
+                  "sourcePosition": {
+                    "line": 117,
+                    "column": 39,
+                    "currentOffset": 5220,
+                    "endOffset": 5226
+                  }
+                }]
+              }]
+            }]
+          }]
+        }, {
+          "sourcePosition": {
+            "line": 118,
+            "column": 25,
+            "currentOffset": 5270,
+            "endOffset": 5313
+          },
+          "children": [{
+            "sourcePosition": {
+              "line": 118,
+              "column": 25,
+              "currentOffset": 5270,
+              "endOffset": 5302
+            },
+            "children": [{
+              "sourcePosition": {
+                "line": 118,
+                "column": 25,
+                "currentOffset": 5270,
+                "endOffset": 5297
+              },
+              "children": [{
+                "sourcePosition": {
+                  "line": 118,
+                  "column": 25,
+                  "currentOffset": 5270,
+                  "endOffset": 5290
+                },
+                "children": [{
+                  "sourcePosition": {
+                    "line": 118,
+                    "column": 25,
+                    "currentOffset": 5270,
+                    "endOffset": 5285
+                  },
+                  "children": [{
+                    "sourcePosition": {
+                      "line": 118,
+                      "column": 25,
+                      "currentOffset": 5270,
+                      "endOffset": 5276
+                    }
+                  }]
+                }]
+              }]
+            }]
+          }]
+        }]
+      }]
+    }, {
+      "sourcePosition": {
+        "line": 120,
+        "column": 24,
+        "currentOffset": 5386,
+        "endOffset": 5488
+      },
+      "children": [{
+        "sourcePosition": {
+          "line": 120,
+          "column": 25,
+          "currentOffset": 5387,
+          "endOffset": 5419
+        },
+        "children": [{
+          "sourcePosition": {
+            "line": 120,
+            "column": 26,
+            "currentOffset": 5388,
+            "endOffset": 5419
+          },
+          "children": [{
+            "sourcePosition": {
+              "line": 120,
+              "column": 37,
+              "currentOffset": 5399,
+              "endOffset": 5419
+            },
+            "children": [{
+              "sourcePosition": {
+                "line": 120,
+                "column": 37,
+                "currentOffset": 5399,
+                "endOffset": 5414
+              },
+              "children": [{
+                "sourcePosition": {
+                  "line": 120,
+                  "column": 37,
+                  "currentOffset": 5399,
+                  "endOffset": 5405
+                }
+              }]
+            }]
+          }]
+        }]
+      }, {
+        "sourcePosition": {
+          "line": 121,
+          "column": 25,
+          "currentOffset": 5449,
+          "endOffset": 5488
+        },
+        "children": [{
+          "sourcePosition": {
+            "line": 121,
+            "column": 25,
+            "currentOffset": 5449,
+            "endOffset": 5479
+          },
+          "children": [{
+            "sourcePosition": {
+              "line": 121,
+              "column": 25,
+              "currentOffset": 5449,
+              "endOffset": 5474
+            },
+            "children": [{
+              "sourcePosition": {
+                "line": 121,
+                "column": 25,
+                "currentOffset": 5449,
+                "endOffset": 5469
+              },
+              "children": [{
+                "sourcePosition": {
+                  "line": 121,
+                  "column": 25,
+                  "currentOffset": 5449,
+                  "endOffset": 5464
+                },
+                "children": [{
+                  "sourcePosition": {
+                    "line": 121,
+                    "column": 25,
+                    "currentOffset": 5449,
+                    "endOffset": 5455
+                  }
+                }]
+              }]
+            }]
+          }]
+        }]
+      }]
+    }]
+  }, {
+    "sourcePosition": {
+      "line": 123,
+      "column": 24,
+      "currentOffset": 5516,
+      "endOffset": 5543
+    },
+    "children": [{
+      "sourcePosition": {
+        "line": 123,
+        "column": 32,
+        "currentOffset": 5524,
+        "endOffset": 5543
+      },
+      "children": [{
+        "sourcePosition": {
+          "line": 123,
+          "column": 32,
+          "currentOffset": 5524,
+          "endOffset": 5536
+        },
+        "children": [{
+          "sourcePosition": {
+            "line": 123,
+            "column": 32,
+            "currentOffset": 5524,
+            "endOffset": 5531
+          }
+        }]
+      }]
+    }]
+  }, {
+    "sourcePosition": {
+      "line": 129,
+      "column": 22,
+      "currentOffset": 5767,
+      "endOffset": 5836
+    },
+    "children": [{
+      "sourcePosition": {
+        "line": 129,
+        "column": 22,
+        "currentOffset": 5767,
+        "endOffset": 5781
+      }
+    }, {
+      "sourcePosition": {
+        "line": 130,
+        "column": 22,
+        "currentOffset": 5809,
+        "endOffset": 5836
+      },
+      "children": [{
+        "sourcePosition": {
+          "line": 130,
+          "column": 30,
+          "currentOffset": 5817,
+          "endOffset": 5836
+        },
+        "children": [{
+          "sourcePosition": {
+            "line": 130,
+            "column": 30,
+            "currentOffset": 5817,
+            "endOffset": 5829
+          },
+          "children": [{
+            "sourcePosition": {
+              "line": 130,
+              "column": 30,
+              "currentOffset": 5817,
+              "endOffset": 5824
+            }
+          }]
+        }]
+      }]
+    }]
+  }, {
+    "sourcePosition": {
+      "line": 141,
+      "column": 22,
+      "currentOffset": 6208,
+      "endOffset": 6222
+    }
+  }]
+};
+
+const REPORT_LIMIT_SIZE = 15
+
+window.onload = function() {
+  if (data.rules.files.length == 1) {
+    document.body.appendChild(buildFormattedReport(data.report || [], data.rules.files[0].content))
+  } else {
+    document.body.appendChild(document.createTextNode('Only single-file rules supported. ' +
+    'If you encounter this please visit https://github.com/firebase/firebase-tools/issues'))
+  }
+};
+
+/**
+ * Builds the html block with span elements for rule visualization.
+ *
+ * @param expressionList The list of expression blocks.
+ * @param ruleString The full text of the rules with newlines and special characters escaped.
+ * @return A <pre> html element with <span></span> around expressions and subexpressions within
+ *     .write, .read, and .validate tokens so that they can be selected.
+ */
+function buildFormattedReport(expressionList, ruleString) {
+  const elements = Object.keys(expressionList).map((key) => {
+    return mapExpressionBlock(expressionList[key], ruleString)
+  })
+  const withText = interpolateTextNodes(
+    elements,
+    ruleString,
+    0,
+    ruleString.length
+  )
+  var preElement = document.createElement('pre')
+  withText.forEach((element) => preElement.appendChild(element.element))
+  return preElement
+}
+
+/**
+ * Traverses an expression block.
+ *
+ * Each expression needs to be wrapped in a span and so it's children need to be immediately
+ * resolved so they can be added to the element.
+ *
+ * @param expressionBlock The current recursive chunk of expression data.
+ * @param ruleString The full text of the rules with newlines and special characters escaped.
+ * @return A single object with at least the keys start, end, and element. Element is the span
+ *    element for that [sub]expression. The span element should have all it's children
+ *    already added.
+ */
+function mapExpressionBlock(expressionBlock, ruleString) {
+  const start = expressionBlock.sourcePosition.currentOffset
+  const end = expressionBlock.sourcePosition.endOffset + 1
+  const onlyChildSpans = (expressionBlock.children || []).map(
+    (child) => mapExpressionBlock(child, ruleString)
+  )
+  const allChildren = interpolateTextNodes(
+    onlyChildSpans,
+    ruleString,
+    start,
+    end,
+    true
+  )
+  var span = document.createElement('span')
+  allChildren.forEach((child) => {
+    span.appendChild(child.element)
+  })
+  span.classList.add('coverage-expr')
+  span.title = buildValueString(expressionBlock.values);
+  return {
+    element: span,
+    start: start,
+    end: end
+  }
+}
+
+/**
+ * The formatted report data has information about where subexpression are located. It does not,
+ * however, have information about text around these expressions. This function takes a formatted
+ * list of spans (representing expressions) and puts surrounding text into text elements and
+ * returns the list of all elements in that given text-area.
+ *
+ * @param objs the list of spans to have their bounds interpolated. Each element in the list should
+ *    formatted with the keys start, end, and element.
+ * @param ruleString The full text of the rules with newlines and special characters escaped.
+ * @param optStart An optional start index to start gathering text-elements from.
+ * @param optEnd An optional end index to finish gathering text-elements at.
+ * @param whether to remove newlines from the text values.
+ * @return An interpolated list with all indices from start to end of the ruleString being
+ *    included in either a span or a text element.
+ */
+function interpolateTextNodes(objs, ruleString, start = null, end = null, removeNewLines = false) {
+  // Arrays so null objects aren't appended (options)
+  const expressionStart = start !== null ? [{'end': start}] : []
+  const expressionEnd = end !== null ? [{'start': end}] : []
+  const sortedInnerBlocks = (objs || []).sort((a, b) => (a['start'] - b['start']))
+  const blocksWithBounds = [].concat(expressionStart, sortedInnerBlocks, expressionEnd)
+  const interpolatedBlocks = blocksWithBounds.reduce((allChildren, child, idx) => {
+    if (allChildren && allChildren.length) {
+      const lastEnd = allChildren[allChildren.length - 1]['end']
+      const thisStart = child['start']
+      // This is an array so that we don't append null objects
+      if (lastEnd < thisStart) {
+        const text = ruleString.substring(lastEnd, thisStart)
+        const textElement = [{
+          element: document.createTextNode(removeNewLines ? text.replace(/\n\s*/g,' ') : text),
+          'start': allChildren[allChildren.length - 1]['end'],
+          'end': child['start']
+        }]
+        return allChildren.concat(textElement, child)
+      }
+    }
+    return allChildren.concat(child)
+  }, [])
+  return interpolatedBlocks.filter(
+    (child) => child['start'] !== undefined && child['end'] !== undefined
+  )
+}
+
+/**
+ * Creates the mouse-over text for each span.
+ *
+ * @param values The array of value objects formatted as {value: **, count: **}.
+ * @return A single string for the mouse-over text.
+ */
+function buildValueString(values) {
+  if (!values || !values.length) {
+    return 'Expression never evaluated'
+  } else if (values.length >= REPORT_LIMIT_SIZE) {
+    const allCounts = values.reduce((acc, obj) => acc + obj.count, 0)
+    return `${values.length} distinct items returned over ${allCounts} times`
+  } else {
+    return values.map(({value, count}) => {
+      const allowedTypes = ['nullValue', 'boolValue', 'intValue', 'floatValue', 'stringValue',
+        'bytesValue', 'durationValue', 'timestampValue', 'latlngValue', 'pathValue']
+      const compressedTypes = ['mapValue', 'listValue', 'constraintValue']
+      const typeAllowed = allowedTypes.filter(type => value[type] !== undefined).length == 1
+      const typeCompressed = compressedTypes.filter(type => value[type] !== undefined).length >= 1
+      // Format is value = {returnType: returnValue}
+      // A returnType of undefined is an error. Unfortunately the field is called undefined.
+      if (value['undefined']) {
+        // Expression evaluated to error
+        return `Error '${value.undefined.causeMessage}' occurred ${count} time(s)`
+      } else if (typeCompressed) {
+        // These types are recursive and are hard to read
+        return `[object Object] returned ${count} time(s)`
+      } else if (typeAllowed) {
+        // The response is a simple literal
+        // Object.values is not ES2015
+        const realValue = Object.keys(value).map((key) => value[key])[0]
+        return `Value ${JSON.stringify(realValue)} returned ${count} time(s)`
+      } else if (Object.keys(value).length === 0) {
+        // Clause not evaluated because of short-circuit.
+        return `Expression short-circuited ${count} time(s)`
+      } else {
+        // For a properly formatted response each value should have one type.
+        console.error('Found invalid expression-return type.')
+      }
+    }).join('\n')
+  }
+}
+</script>

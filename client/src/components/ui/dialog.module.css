@@ -1,0 +1,154 @@
+.ui-dialog__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background-color: rgb(0 0 0 / 0.8);
+}
+.ui-dialog__overlay[data-state="open"] {
+  animation: ui-fade-in 0.15s ease-out;
+}
+.ui-dialog__overlay[data-state="closed"] {
+  animation: ui-fade-out 0.15s ease-in;
+}
+
+.ui-dialog__content {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  z-index: 50;
+  display: grid;
+  width: 100%;
+  max-width: 32rem;
+  transform: translate(-50%, -50%);
+  gap: 1rem;
+  border: 1px solid hsl(var(--border));
+  background-color: hsl(var(--background));
+  padding: 1.5rem;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  transition-duration: 0.2s;
+}
+.ui-dialog__content[data-state="open"] {
+  animation: ui-dialog-content-show 0.2s ease-out;
+}
+.ui-dialog__content[data-state="closed"] {
+  animation: ui-dialog-content-hide 0.15s ease-in;
+}
+@media (min-width: 640px) {
+  .ui-dialog__content {
+    border-radius: 0.5rem;
+  }
+}
+
+.ui-dialog__close {
+  position: absolute;
+  right: 1rem;
+  top: 1rem;
+  border-radius: 0.125rem;
+  opacity: 0.7;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s;
+}
+.ui-dialog__close:hover {
+  opacity: 1;
+}
+.ui-dialog__close:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px hsl(var(--ring)), 0 0 0 4px hsl(var(--background));
+}
+.ui-dialog__close:disabled {
+  pointer-events: none;
+}
+.ui-dialog__close[data-state="open"] {
+  background-color: hsl(var(--accent));
+  color: hsl(var(--muted-foreground));
+}
+
+.ui-dialog__close-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.ui-dialog__header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  text-align: center;
+}
+@media (min-width: 640px) {
+  .ui-dialog__header {
+    text-align: left;
+  }
+}
+
+.ui-dialog__footer {
+  display: flex;
+  flex-direction: column-reverse;
+}
+@media (min-width: 640px) {
+  .ui-dialog__footer {
+    flex-direction: row;
+    justify-content: flex-end;
+    gap: 0.5rem;
+  }
+}
+
+.ui-dialog__title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.015em;
+}
+
+.ui-dialog__description {
+  font-size: 0.875rem;
+  color: hsl(var(--muted-foreground));
+}
+
+.ui-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* ---- Keyframes (must be in-module so CSS Modules scopes them
+   to match the scoped animation-name references above) ---- */
+@keyframes ui-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes ui-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes ui-dialog-content-show {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+@keyframes ui-dialog-content-hide {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.95);
+  }
+}

@@ -1,0 +1,179 @@
+/* ---- Webhook Card ---- */
+.webhook-card {
+  height: 76px;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid #d9d9d9;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+@media (max-width: 767px) {
+  .webhook-card { padding: 0 12px; }
+}
+.webhook-card:hover {
+  border-color: #bbb;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.webhook-card__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--brand, #01189b);
+  flex-shrink: 0;
+  margin-right: 12px;
+}
+
+.webhook-card__info {
+  min-width: 0;
+  width: 280px;
+  flex-shrink: 0;
+}
+@media (max-width: 767px) {
+  .webhook-card__info { width: 200px; }
+}
+
+.webhook-card__name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--brand, #01189b);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.webhook-card__url {
+  font-size: 12px;
+  color: #919493;
+  font-weight: 300;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
+  margin: 2px 0 0;
+}
+
+.webhook-card__spacer {
+  flex: 1;
+  min-width: 16px;
+}
+
+.webhook-card__created {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  margin-right: 40px;
+}
+@media (min-width: 768px) {
+  .webhook-card__created { display: flex; }
+}
+@media (min-width: 1024px) {
+  .webhook-card__created { margin-right: 64px; }
+}
+
+.webhook-card__created-icon-wrap {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid #d9d9d9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafb;
+}
+.webhook-card__created-icon { width: 24px; height: 24px; color: #808080; }
+
+.webhook-card__meta-label {
+  font-size: 10px;
+  color: #b9b9b9;
+  font-weight: 600;
+  line-height: 1.2;
+  margin: 0;
+}
+.webhook-card__meta-value {
+  font-size: 10px;
+  color: #808080;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 2px 0 0;
+}
+
+.webhook-card__status {
+  display: none;
+  flex-shrink: 0;
+  min-width: 80px;
+  margin-right: 40px;
+}
+@media (min-width: 768px) {
+  .webhook-card__status { display: block; }
+}
+@media (min-width: 1024px) {
+  .webhook-card__status { margin-right: 64px; }
+}
+
+.webhook-card__status-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+}
+.webhook-card__status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #3ebe91;
+  display: inline-block;
+}
+.webhook-card__status-text--active {
+  font-size: 10px;
+  font-weight: 700;
+  color: #3ebe91;
+  line-height: 1.2;
+  margin: 0;
+}
+.webhook-card__status-text--closed {
+  font-size: 10px;
+  font-weight: 700;
+  color: #686868;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.webhook-card__stats {
+  display: none;
+  flex-shrink: 0;
+  min-width: 60px;
+}
+@media (min-width: 768px) {
+  .webhook-card__stats { display: block; }
+}
+
+/* Options button - fixed icon size (Task 8) */
+.webhook-card__options-btn {
+  width: 31px;
+  height: 32px;
+  background: #f8fafb;
+  border: 1px solid #b9b9b9;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+.webhook-card__options-btn:hover {
+  background: #f0f0f0;
+  border-color: #999;
+}
+.webhook-card__options-icon {
+  width: 16px;
+  height: 16px;
+  color: #686868;
+}

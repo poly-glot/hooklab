@@ -1,0 +1,85 @@
+/* ---- Waiting State ---- */
+.waiting-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+  height: 100%;
+}
+
+.waiting-state__spinner {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 3px solid #e5e5e5;
+  border-top-color: var(--brand, #01189b);
+  animation: waiting-spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+@keyframes waiting-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.waiting-state__title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #323232;
+  margin: 0 0 4px;
+}
+.waiting-state__subtitle {
+  font-size: 11px;
+  color: #919493;
+  margin: 0 0 20px;
+}
+
+.waiting-state__curl {
+  width: 100%;
+  max-width: 420px;
+  background: #111;
+  border-radius: 6px;
+  overflow: hidden;
+  text-align: left;
+}
+.waiting-state__curl-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #222;
+}
+.waiting-state__curl-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.waiting-state__curl-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.2s;
+}
+.waiting-state__curl-copy:hover { color: #fff; }
+.waiting-state__curl-copy-icon { width: 12px; height: 12px; }
+
+.waiting-state__curl-code {
+  padding: 12px;
+  font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", monospace;
+  font-size: 10px;
+  line-height: 1.6;
+  color: #e4e4e7;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: 0;
+}
