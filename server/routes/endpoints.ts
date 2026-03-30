@@ -10,11 +10,14 @@ import type { Context } from "hono";
 import { authMiddleware } from "../middleware/auth.ts";
 import {
   createEndpoint,
+  deleteByQuery,
   deleteDocument,
   deleteEndpointDoc,
+  getDocument,
   getEndpoint,
   getEndpointsByUser,
   getExecutionsByEndpoint,
+  updateDocument,
   updateEndpointFields,
 } from "../services/firebase-admin.ts";
 import type {
@@ -48,6 +51,15 @@ async function getOwnedEndpoint(
   return endpoint;
 }
 
+/** Read current endpointCount, add delta, write back. */
+async function incrementEndpointCount(userId: string, delta: number): Promise<void> {
+  const doc = await getDocument("users", userId);
+  const current = (doc?.endpointCount as number) ?? 0;
+  await updateDocument("users", userId, {
+    endpointCount: Math.max(0, current + delta),
+  });
+}
+
 const UPDATABLE_FIELDS = [
   "name", "script", "defaultStatusCode", "defaultContentType", "defaultBody",
 ] as const;
@@ -72,6 +84,12 @@ endpoints.post("/", async (c) => {
   }
 
   const endpoint = await createEndpoint(userId, body.name.trim(), body.script);
+
+  // Increment user's endpoint counter (fire-and-forget)
+  incrementEndpointCount(userId, 1).catch((err) =>
+    console.error("[Endpoints] Failed to increment endpointCount:", err),
+  );
+
   return c.json({ endpoint }, 201);
 });
 
@@ -106,10 +124,20 @@ endpoints.put("/:id", async (c) => {
 
 // DELETE /api/endpoints/:id — delete endpoint (ownership enforced)
 endpoints.delete("/:id", async (c) => {
-  const endpoint = await getOwnedEndpoint(c, c.get("userId"));
+  const userId = c.get("userId");
+  const endpoint = await getOwnedEndpoint(c, userId);
   if (!endpoint) return c.json({ error: "Endpoint not found" }, 404);
 
   await deleteEndpointDoc(endpoint.id);
+
+  // Decrement counter and clean up executions (fire-and-forget)
+  Promise.all([
+    incrementEndpointCount(userId, -1),
+    deleteByQuery("executions", [{ field: "endpointId", op: "EQUAL", value: endpoint.id }]),
+  ]).catch((err) =>
+    console.error("[Endpoints] Post-delete cleanup failed:", err),
+  );
+
   return c.json({ ok: true });
 });
 

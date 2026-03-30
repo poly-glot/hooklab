@@ -5,7 +5,6 @@ vi.mock("@/lib/firebase-init", () => ({
   app: {},
   auth: {},
   firestore: {},
-  functions: {},
 }));
 
 vi.mock("firebase/firestore", () => {
@@ -46,8 +45,12 @@ vi.mock("firebase/firestore", () => {
   };
 });
 
-vi.mock("firebase/functions", () => ({
-  httpsCallable: vi.fn(() => vi.fn(async () => ({ data: {} }))),
+vi.mock("@/lib/api", () => ({
+  api: {
+    seedGuestData: vi.fn(async () => ({ success: true })),
+    clearRequestLogs: vi.fn(async () => ({ ok: true })),
+    deleteRequestLog: vi.fn(async () => ({ ok: true })),
+  },
 }));
 
 describe("Firestore Service Layer", () => {
@@ -112,15 +115,12 @@ describe("Firestore Service Layer", () => {
       expect(limit).toHaveBeenCalledWith(100);
     });
 
-    it("clearExecutions calls httpsCallable", async () => {
-      const { httpsCallable } = await import("firebase/functions");
+    it("clearExecutions calls api.clearRequestLogs", async () => {
+      const { api } = await import("@/lib/api");
       const { clearExecutions } = await import("@/lib/firestore");
 
       await clearExecutions("ep123");
-      expect(httpsCallable).toHaveBeenCalledWith(
-        expect.anything(),
-        "clearExecutions"
-      );
+      expect(api.clearRequestLogs).toHaveBeenCalledWith("ep123");
     });
   });
 
@@ -147,15 +147,12 @@ describe("Firestore Service Layer", () => {
   });
 
   describe("Guest operations", () => {
-    it("seedGuestData calls httpsCallable", async () => {
-      const { httpsCallable } = await import("firebase/functions");
+    it("seedGuestData calls api.seedGuestData", async () => {
+      const { api } = await import("@/lib/api");
       const { seedGuestData } = await import("@/lib/firestore");
 
       await seedGuestData();
-      expect(httpsCallable).toHaveBeenCalledWith(
-        expect.anything(),
-        "seedGuestData"
-      );
+      expect(api.seedGuestData).toHaveBeenCalled();
     });
   });
 });

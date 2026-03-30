@@ -231,7 +231,7 @@ export const clearExecutions = onCall(
 
 // ── 4. Endpoint counter triggers ───────────────────────────────────
 export const onEndpointCreated = onDocumentCreated(
-  { document: "endpoints/{endpointId}", region },
+  { document: "endpoints/{endpointId}", database: "hooklab", region },
   async (event) => {
     const endpoint = event.data?.data();
     if (!endpoint) return;
@@ -248,7 +248,7 @@ export const onEndpointCreated = onDocumentCreated(
 );
 
 export const onEndpointDeleted = onDocumentDeleted(
-  { document: "endpoints/{endpointId}", region },
+  { document: "endpoints/{endpointId}", database: "hooklab", region },
   async (event) => {
     const endpoint = event.data?.data();
     if (!endpoint) return;

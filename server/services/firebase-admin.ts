@@ -99,6 +99,45 @@ async function authHeaders(): Promise<Record<string, string>> {
   };
 }
 
+// ── Batch / Commit ─────────────────────────────────────────────────
+
+function commitUrl(): string {
+  return `${getBaseUrl()}/v1/projects/${PROJECT_ID}/databases/${FIRESTORE_DB}/documents:commit`;
+}
+
+function docPath(collection: string, docId: string): string {
+  return `projects/${PROJECT_ID}/databases/${FIRESTORE_DB}/documents/${collection}/${docId}`;
+}
+
+/**
+ * Atomically writes multiple documents using Firestore commit API.
+ * Each write is an "update" (upsert) with the full document fields.
+ */
+export async function batchWrite(
+  writes: Array<{ collection: string; docId: string; data: Record<string, unknown> }>,
+): Promise<void> {
+  const headers = await authHeaders();
+  const body = {
+    writes: writes.map((w) => ({
+      update: {
+        name: docPath(w.collection, w.docId),
+        fields: objectToFields(w.data),
+      },
+    })),
+  };
+
+  const res = await fetch(commitUrl(), {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`[FirebaseAdmin] batchWrite failed: ${res.status} ${err}`);
+  }
+}
+
 // ── Document CRUD ───────────────────────────────────────────────────
 
 /**
@@ -432,6 +471,28 @@ export async function getUser(userId: string): Promise<FirestoreUser | null> {
     endpointCount: doc.endpointCount ?? 0,
     createdAt: doc.createdAt || new Date().toISOString(),
   };
+}
+
+// ── Bulk operations ────────────────────────────────────────────────
+
+/**
+ * Deletes all documents matching a query, in batches of 500.
+ * Returns total count of deleted documents.
+ */
+export async function deleteByQuery(
+  collection: string,
+  filters: Array<{ field: string; op: string; value: unknown }>,
+): Promise<number> {
+  let totalDeleted = 0;
+  let results = await runQuery(collection, filters, undefined, "DESCENDING", 500);
+
+  while (results.length > 0) {
+    await Promise.all(results.map((doc) => deleteDocument(collection, doc.id)));
+    totalDeleted += results.length;
+    results = await runQuery(collection, filters, undefined, "DESCENDING", 500);
+  }
+
+  return totalDeleted;
 }
 
 // ── Availability check ──────────────────────────────────────────────

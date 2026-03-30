@@ -18,6 +18,7 @@ import {
 import auth from "./routes/auth.ts";
 import endpoints from "./routes/endpoints.ts";
 import reports from "./routes/reports.ts";
+import internal from "./routes/internal.ts";
 import webhooks from "./routes/webhooks.ts";
 
 const app = new Hono();
@@ -54,6 +55,7 @@ app.get("/api/health", (c) => {
 app.route("/api/auth", auth);
 app.route("/api/endpoints", endpoints);
 app.route("/api/reports", reports);
+app.route("/api/internal", internal);
 
 // Webhook receiver (public, no auth required)
 app.route("/w", webhooks);

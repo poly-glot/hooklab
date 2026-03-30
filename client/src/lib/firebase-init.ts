@@ -1,4 +1,4 @@
-import { initializeApp, getApp } from "firebase/app";
+import { initializeApp } from "firebase/app";
 import {
   getAuth,
   connectAuthEmulator,
@@ -6,15 +6,9 @@ import {
   setPersistence,
 } from "firebase/auth";
 import {
-  getFirestore,
   initializeFirestore,
   connectFirestoreEmulator,
 } from "firebase/firestore";
-import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
-import {
-  initializeAppCheck,
-  ReCaptchaEnterpriseProvider,
-} from "firebase/app-check";
 
 // Enable emulator mode when VITE_USE_EMULATORS is set
 const isEmulatorMode =
@@ -40,17 +34,16 @@ const emulatorConfig = {
 const firebaseConfig = isEmulatorMode ? emulatorConfig : productionConfig;
 const app = initializeApp(firebaseConfig);
 
+// Always use the named "hooklab" database — matches firebase.json and Terraform
+export const firestore = initializeFirestore(app, {}, "hooklab");
+export const auth = getAuth(app);
+
 // Connect to emulators in development
 if (isEmulatorMode) {
   const emulatorHosts = {
     auth: { host: "localhost", port: 9099 },
     firestore: { host: "localhost", port: 8080 },
-    functions: { host: "localhost", port: 5001 },
   };
-
-  const auth = getAuth();
-  const firestore = getFirestore();
-  const functions = getFunctions(getApp(), "europe-west1");
 
   connectAuthEmulator(
     auth,
@@ -61,35 +54,9 @@ if (isEmulatorMode) {
     emulatorHosts.firestore.host,
     emulatorHosts.firestore.port
   );
-  connectFunctionsEmulator(
-    functions,
-    emulatorHosts.functions.host,
-    emulatorHosts.functions.port
-  );
-}
-
-// ── App Check ──────────────────────────────────────────────────────
-// In emulator mode, use the debug provider (set FIREBASE_APPCHECK_DEBUG_TOKEN in browser console).
-// In production, use reCAPTCHA Enterprise with the site key from env.
-if (isEmulatorMode) {
-  // @ts-expect-error debug token flag for Firebase App Check emulator/debug provider
-  self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
-}
-
-const recaptchaSiteKey = import.meta.env.VITE_RECAPTCHA_ENTERPRISE_SITE_KEY;
-if (recaptchaSiteKey) {
-  initializeAppCheck(app, {
-    provider: new ReCaptchaEnterpriseProvider(recaptchaSiteKey),
-    isTokenAutoRefreshEnabled: true,
-  });
 }
 
 export { app };
-export const auth = getAuth(app);
-export const firestore = isEmulatorMode
-  ? getFirestore(app)
-  : initializeFirestore(app, {}, "hooklab");
-export const functions = getFunctions(app, "europe-west1");
 
 // Use session persistence — auth state is cleared when browser tab closes.
 // No data persists in localStorage/IndexedDB across sessions.

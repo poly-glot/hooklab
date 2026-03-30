@@ -18,8 +18,7 @@ import {
   type QuerySnapshot,
   type Unsubscribe,
 } from "firebase/firestore";
-import { httpsCallable } from "firebase/functions";
-import { auth, firestore, functions } from "./firebase-init";
+import { auth, firestore } from "./firebase-init";
 import type { Endpoint, RequestLog, User } from "./api";
 
 // ── Collection references ─────────────────────────────────────────
@@ -278,6 +277,6 @@ export function onExecutionsSnapshot(
 
 // ── Guest seed data ───────────────────────────────────────────────
 export async function seedGuestData(): Promise<void> {
-  const seedFn = httpsCallable(functions, "seedGuestData");
-  await seedFn({});
+  const { api } = await import("./api");
+  await api.seedGuestData();
 }

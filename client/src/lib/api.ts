@@ -162,6 +162,10 @@ class ApiClient {
     return this.request("/auth/me");
   }
 
+  async seedGuestData(): Promise<{ success: boolean }> {
+    return this.request("/auth/seed", { method: "POST" });
+  }
+
   // Endpoints
   async getEndpoints(): Promise<{ endpoints: Endpoint[] }> {
     return this.request("/endpoints");

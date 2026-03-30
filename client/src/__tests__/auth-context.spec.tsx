@@ -31,7 +31,6 @@ vi.mock("@/lib/firebase-init", () => ({
   auth: { currentUser: null },
   app: {},
   firestore: {},
-  functions: {},
 }));
 
 const mockGetUserDocument = vi.fn();
