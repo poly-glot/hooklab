@@ -70,3 +70,5 @@
 }
 .app-header__github:hover { opacity: 0.5; }
 .app-header__github-icon { width: 20px; height: 20px; }
+
+.app-header__sign-out-icon { width: 16px; height: 16px; }

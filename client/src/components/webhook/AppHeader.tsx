@@ -1,13 +1,18 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { User } from 'lucide-react';
+import { User, LogOut } from 'lucide-react';
 import { GitHubIcon } from '@/components/icons/GitHubIcon';
 import styles from './AppHeader.module.css';
 
 export function AppHeader() {
-  const { user, isAnonymous } = useAuth();
+  const { user, isAnonymous, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const handleSignOut = async () => {
+    await logout();
+    navigate('/auth');
+  };
 
   const isDashboard = location.pathname === '/dashboard';
 
@@ -52,6 +57,13 @@ export function AppHeader() {
             >
               <GitHubIcon className={styles.appHeaderGithubIcon} />
             </a>
+            <button
+              onClick={handleSignOut}
+              className={styles.appHeaderNavLink}
+              aria-label="Sign out"
+            >
+              <LogOut className={styles.appHeaderSignOutIcon} />
+            </button>
           </>
         )}
         {!user && (
