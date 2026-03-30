@@ -14,7 +14,7 @@ export function AppHeader() {
   return (
     <header role="banner" className={styles.appHeader}>
       <button
-        onClick={() => navigate(user ? '/dashboard' : '/')}
+        onClick={() => navigate('/')}
         className={styles.appHeaderLogo}
       >
         Hooklab
