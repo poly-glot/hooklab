@@ -49,6 +49,7 @@ function docToEndpoint(id: string, data: DocumentData): Endpoint {
     defaultContentType: data.defaultContentType ?? "application/json",
     defaultBody: data.defaultBody ?? '{"ok": true}',
     isActive: data.isActive !== false,
+    totalExecutions: data.totalExecutions ?? 0,
     createdAt: toTimestampString(data.createdAt),
   };
 }

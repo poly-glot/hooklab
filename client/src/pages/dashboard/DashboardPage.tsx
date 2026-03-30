@@ -164,7 +164,7 @@ export function DashboardPage() {
                       url={getWebhookUrl(ep.id)}
                       createdAt={ep.createdAt}
                       status={status}
-                      stats={0}
+                      stats={ep.totalExecutions}
                       hasStatusDot={status === 'active'}
                       onClick={() => navigate(`/dashboard/endpoint/${ep.id}`)}
                       optionsSlot={

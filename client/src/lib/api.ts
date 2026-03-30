@@ -24,6 +24,7 @@ export interface Endpoint {
   defaultContentType: string;
   defaultBody: string;
   isActive: boolean;
+  totalExecutions: number;
   createdAt: string;
 }
 
