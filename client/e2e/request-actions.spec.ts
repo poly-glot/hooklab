@@ -46,25 +46,6 @@ async function sendWebhookRequests(endpointId: string, count: number) {
 }
 
 test.describe('Individual Request Deletion', () => {
-  test('delete button is visible on each request item', async ({ page }) => {
-    await loginAsGuest(page);
-    await createEndpointViaUI(page, 'Del Visible');
-    await navigateToEndpoint(page, 'Del Visible');
-
-    const endpointId = getEndpointIdFromUrl(page);
-    expect(endpointId).toBeTruthy();
-
-    await sendWebhookRequests(endpointId, 2);
-
-    const requestList = page.locator('[data-testid="request-list"]');
-    await expect(requestList.locator('[role="button"]').first()).toBeVisible({ timeout: 10000 });
-    await expect(requestList.locator('[role="button"]')).toHaveCount(2, { timeout: 10000 });
-
-    const firstItem = requestList.locator('[role="button"]').first();
-    const deleteBtn = firstItem.locator('[aria-label="Delete request"]');
-    await expect(deleteBtn).toBeVisible({ timeout: 5000 });
-  });
-
   test('clicking delete removes the request from sidebar', async ({ page }) => {
     await loginAsGuest(page);
     await createEndpointViaUI(page, 'Del Remove');

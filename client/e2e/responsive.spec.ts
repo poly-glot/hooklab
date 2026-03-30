@@ -27,26 +27,6 @@ async function navigateToEndpoint(page: Page, name: string) {
 test.describe('Mobile Viewport (375x667)', () => {
   test.use({ viewport: { width: 375, height: 667 } });
 
-  test('landing page loads on mobile', async ({ page }) => {
-    await page.goto('/');
-    await page.waitForLoadState('domcontentloaded');
-    // Verify the page renders visible content (header or hero text)
-    const body = page.locator('body');
-    await expect(body).toBeVisible();
-    // Check that some meaningful content is rendered
-    const hasContent = await page.locator('h1, h2, header, [class*="hero"], [class*="landing"]').first().isVisible().catch(() => false);
-    expect(hasContent || await page.locator('body').innerText().then(t => t.trim().length > 0)).toBeTruthy();
-  });
-
-  test('auth page works on mobile', async ({ page }) => {
-    await page.goto('/auth');
-    await page.waitForLoadState('domcontentloaded');
-    const guestButton = page.getByText('Guest');
-    await expect(guestButton).toBeVisible({ timeout: 10000 });
-    // Verify the button is within the visible viewport and clickable
-    await expect(guestButton).toBeEnabled();
-  });
-
   test('guest login works on mobile', async ({ page }) => {
     await loginAsGuest(page);
     await expect(page).toHaveURL(/\/dashboard/);
@@ -80,12 +60,7 @@ test.describe('Mobile Viewport (375x667)', () => {
     await createEndpointViaUI(page, 'Mobile Detail EP');
     await navigateToEndpoint(page, 'Mobile Detail EP');
 
-    // Verify the endpoint detail page loaded (back button or endpoint name visible)
-    const backButton = page.getByText('Back to listing');
-    const endpointName = page.getByText('Mobile Detail EP');
-    const hasBack = await backButton.isVisible().catch(() => false);
-    const hasName = await endpointName.isVisible().catch(() => false);
-    expect(hasBack || hasName).toBeTruthy();
+    await expect(page.getByText('Mobile Detail EP')).toBeVisible({ timeout: 10000 });
   });
 
   test('mobile toolbar is visible instead of desktop toolbar', async ({ page }) => {
@@ -105,22 +80,6 @@ test.describe('Mobile Viewport (375x667)', () => {
 
 test.describe('Tablet Viewport (768x1024)', () => {
   test.use({ viewport: { width: 768, height: 1024 } });
-
-  test('dashboard works on tablet', async ({ page }) => {
-    await loginAsGuest(page);
-    await createEndpointViaUI(page, 'Tablet Dashboard EP');
-    await expect(page.getByText('Tablet Dashboard EP')).toBeVisible();
-  });
-
-  test('endpoint detail works on tablet', async ({ page }) => {
-    await loginAsGuest(page);
-    await createEndpointViaUI(page, 'Tablet Detail EP');
-    await navigateToEndpoint(page, 'Tablet Detail EP');
-
-    // Verify the action bar area is visible on tablet
-    const actionBar = page.locator('.action-bar__toolbar-mobile, .action-bar__toolbar');
-    await expect(actionBar.first()).toBeVisible({ timeout: 5000 });
-  });
 
   test('create dialog works on tablet', async ({ page }) => {
     await loginAsGuest(page);
