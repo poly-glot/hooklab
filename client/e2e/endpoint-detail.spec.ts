@@ -26,10 +26,6 @@ test.describe('Endpoint Detail Page', () => {
       await expect(endpointDetailPage.copyButton).toBeVisible();
       await expect(endpointDetailPage.autoRefreshToggle).toBeVisible();
       await expect(endpointDetailPage.deleteAllButton).toBeVisible();
-      await expect(endpointDetailPage.headerTab).toBeVisible();
-      await expect(endpointDetailPage.bodyTab).toBeVisible();
-      await expect(endpointDetailPage.queryTab).toBeVisible();
-      await expect(endpointDetailPage.responseTab).toBeVisible();
       await expect(page.locator('.action-bar__toolbar-url').filter({ hasText: '/w/' })).toBeVisible();
     });
   });

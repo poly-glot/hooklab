@@ -15,7 +15,6 @@ test.describe('Auth Page - Authentication Journey', () => {
       await authPage.expectLoaded();
       await expect(authPage.modalCard).toBeVisible();
       await expect(authPage.googleButton).toBeVisible();
-      await expect(authPage.appleButton).toBeVisible();
       await expect(authPage.emailLinkButton).toBeVisible();
       await expect(authPage.guestButton).toBeVisible();
     });

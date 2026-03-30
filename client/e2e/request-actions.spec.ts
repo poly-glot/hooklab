@@ -1,49 +1,11 @@
-import { test, expect, type Page } from '@playwright/test';
-
-const API_BASE = process.env.API_URL || 'http://localhost:3000';
-
-async function loginAsGuest(page: Page) {
-  await page.goto('/auth');
-  await expect(page.getByText('Guest')).toBeVisible({ timeout: 10000 });
-  await page.getByText('Guest').click();
-  await page.waitForURL('**/dashboard', { timeout: 20000 });
-}
-
-async function createEndpointViaUI(page: Page, name: string) {
-  const createBtn = page.getByRole('button', { name: 'ADD NEW' }).first();
-  await expect(createBtn).toBeVisible({ timeout: 5000 });
-  await createBtn.click();
-  const nameInput = page.getByRole('textbox', { name: 'Endpoint Name' });
-  await expect(nameInput).toBeVisible({ timeout: 5000 });
-  await nameInput.fill(name);
-  const submitBtn = page.getByRole('button', { name: 'Create Endpoint' });
-  await submitBtn.click();
-  await expect(page.getByText(name)).toBeVisible({ timeout: 10000 });
-}
-
-async function navigateToEndpoint(page: Page, name: string) {
-  await page.getByText(name).click();
-  await page.waitForURL('**/dashboard/endpoint/**', { timeout: 10000 });
-  await expect(page.locator('[data-testid="back-button"]')).toBeVisible({ timeout: 10000 });
-}
-
-function getEndpointIdFromUrl(page: Page): string {
-  const url = page.url();
-  const match = url.match(/\/endpoint\/([^/]+)/);
-  return match ? match[1] : '';
-}
-
-async function sendWebhookRequests(endpointId: string, count: number) {
-  const methods = ['POST', 'GET', 'PUT', 'DELETE', 'PATCH'];
-  for (let i = 0; i < count; i++) {
-    const method = methods[i % methods.length];
-    await fetch(`${API_BASE}/w/${endpointId}`, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: method !== 'GET' ? JSON.stringify({ test: true, index: i }) : undefined,
-    }).catch(() => {});
-  }
-}
+import { test, expect } from '@playwright/test';
+import {
+  loginAsGuest,
+  createEndpointViaUI,
+  navigateToEndpoint,
+  getEndpointIdFromUrl,
+  sendWebhookRequests,
+} from './fixtures/emulator-helpers';
 
 test.describe('Individual Request Deletion', () => {
   test('clicking delete removes the request from sidebar', async ({ page }) => {

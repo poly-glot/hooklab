@@ -1,26 +1,21 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5174';
-const API_URL = process.env.API_URL || 'http://localhost:3000';
 
 /**
  * All E2E tests run against real Firebase emulators + Deno API server.
  *
  * Prerequisites (must be running before tests):
- *   - Firebase emulators: Auth (9099), Firestore (8080), Functions (5001)
+ *   - Firebase emulators: Auth (9099), Firestore (8080)
  *   - Deno API server: port 3000
  *   - Vite dev server: port 5174 (auto-started by webServer config below)
- *
- * Start emulators + server:
- *   npm run serve  (from project root — starts Firebase emulators)
- *   cd server && deno task dev  (starts Deno API server)
  */
 export default defineConfig({
   testDir: './e2e',
-  fullyParallel: false,
+  fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 1,
-  workers: 1,
+  workers: process.env.CI ? 2 : 4,
   reporter: process.env.CI ? 'github' : 'html',
   timeout: 60000,
   expect: {
@@ -35,8 +30,16 @@ export default defineConfig({
   },
   projects: [
     {
-      name: 'chromium',
+      name: 'ui',
+      testIgnore: /integration\//,
       use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'integration',
+      testMatch: /integration\//,
+      // Integration tests share state via beforeAll (shared token).
+      // Keep serial within each describe block.
+      fullyParallel: false,
     },
   ],
   webServer: [

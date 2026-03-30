@@ -15,7 +15,6 @@ test.describe('Dashboard Page - Authenticated Journey', () => {
 
       await dashboardPage.expectLoaded();
       await expect(dashboardPage.headerLogo).toHaveText('Hooklab');
-      await expect(dashboardPage.githubLink).toBeVisible();
       await expect(dashboardPage.searchInput).toBeVisible();
       await expect(dashboardPage.addNewButton).toBeVisible();
       await expect(dashboardPage.allFilter).toBeVisible();

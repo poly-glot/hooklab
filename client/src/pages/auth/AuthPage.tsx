@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
@@ -38,8 +39,11 @@ function EmailIcon() {
 }
 
 export default function AuthPage() {
-  const { loginAsGuest, loginWithGoogle } = useAuth();
+  const { loginAsGuest, loginWithGoogle, sendEmailLink } = useAuth();
   const navigate = useNavigate();
+  const [showEmailInput, setShowEmailInput] = useState(false);
+  const [email, setEmail] = useState('');
+  const [emailSending, setEmailSending] = useState(false);
 
   const handleGuestLogin = async () => {
     try {
@@ -59,8 +63,19 @@ export default function AuthPage() {
     }
   };
 
-  const handleComingSoon = () => {
-    toast.info('Coming soon');
+  const handleSendEmailLink = async () => {
+    if (!email) return;
+    setEmailSending(true);
+    try {
+      await sendEmailLink(email);
+      toast.success('Sign-in link sent — check your inbox');
+      setShowEmailInput(false);
+      setEmail('');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to send sign-in link');
+    } finally {
+      setEmailSending(false);
+    }
   };
 
   return (

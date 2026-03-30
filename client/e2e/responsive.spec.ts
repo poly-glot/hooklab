@@ -1,28 +1,9 @@
-import { test, expect, type Page } from '@playwright/test';
-
-async function loginAsGuest(page: Page) {
-  await page.goto('/auth');
-  await expect(page.getByText('Guest')).toBeVisible({ timeout: 10000 });
-  await page.getByText('Guest').click();
-  await page.waitForURL('**/dashboard', { timeout: 20000 });
-}
-
-async function createEndpointViaUI(page: Page, name: string) {
-  const createBtn = page.getByRole('button', { name: 'ADD NEW' }).first();
-  await expect(createBtn).toBeVisible({ timeout: 5000 });
-  await createBtn.click();
-  const nameInput = page.getByRole('textbox', { name: 'Endpoint Name' });
-  await expect(nameInput).toBeVisible({ timeout: 5000 });
-  await nameInput.fill(name);
-  const submitBtn = page.getByRole('button', { name: 'Create Endpoint' });
-  await submitBtn.click();
-  await expect(page.getByText(name)).toBeVisible({ timeout: 10000 });
-}
-
-async function navigateToEndpoint(page: Page, name: string) {
-  await page.getByText(name).click();
-  await page.waitForURL('**/dashboard/endpoint/**', { timeout: 10000 });
-}
+import { test, expect } from '@playwright/test';
+import {
+  loginAsGuest,
+  createEndpointViaUI,
+  navigateToEndpoint,
+} from './fixtures/emulator-helpers';
 
 test.describe('Mobile Viewport (375x667)', () => {
   test.use({ viewport: { width: 375, height: 667 } });

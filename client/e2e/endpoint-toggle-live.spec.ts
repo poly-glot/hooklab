@@ -1,37 +1,12 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
+import {
+  loginAsGuest,
+  createEndpointViaUI,
+  navigateToEndpoint,
+  getEndpointIdFromUrl,
+} from './fixtures/emulator-helpers';
 
 const API_BASE = process.env.API_URL || 'http://localhost:3000';
-
-async function loginAsGuest(page: Page) {
-  await page.goto('/auth');
-  await expect(page.getByText('Guest')).toBeVisible({ timeout: 10000 });
-  await page.getByText('Guest').click();
-  await page.waitForURL('**/dashboard', { timeout: 20000 });
-}
-
-async function createEndpointViaUI(page: Page, name: string) {
-  const createBtn = page.getByRole('button', { name: 'ADD NEW' }).first();
-  await expect(createBtn).toBeVisible({ timeout: 5000 });
-  await createBtn.click();
-  const nameInput = page.getByRole('textbox', { name: 'Endpoint Name' });
-  await expect(nameInput).toBeVisible({ timeout: 5000 });
-  await nameInput.fill(name);
-  const submitBtn = page.getByRole('button', { name: 'Create Endpoint' });
-  await submitBtn.click();
-  await expect(page.getByText(name)).toBeVisible({ timeout: 10000 });
-}
-
-async function navigateToEndpoint(page: Page, name: string) {
-  await page.getByText(name).click();
-  await page.waitForURL('**/dashboard/endpoint/**', { timeout: 10000 });
-  await expect(page.locator('[data-testid="back-button"]')).toBeVisible({ timeout: 10000 });
-}
-
-function getEndpointIdFromUrl(page: Page): string {
-  const url = page.url();
-  const match = url.match(/\/endpoint\/([^/]+)/);
-  return match ? match[1] : '';
-}
 
 test.describe('Live Toggle & Endpoint Disable', () => {
   test('new endpoint shows Live by default', async ({ page }) => {

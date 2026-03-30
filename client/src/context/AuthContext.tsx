@@ -9,6 +9,9 @@ import {
   signOut as firebaseSignOut,
   linkWithCredential,
   EmailAuthProvider,
+  sendSignInLinkToEmail,
+  isSignInWithEmailLink,
+  signInWithEmailLink,
   type User as FirebaseUser,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase-init";
@@ -20,6 +23,8 @@ import {
 } from "@/lib/firestore";
 import type { User } from "@/lib/api";
 
+const EMAIL_LINK_KEY = "emailForSignIn";
+
 interface AuthContextType {
   user: User | null;
   firebaseUser: FirebaseUser | null;
@@ -28,6 +33,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
+  sendEmailLink: (email: string) => Promise<void>;
   loginAsGuest: () => Promise<void>;
   upgradeAccount: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -40,6 +46,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAnonymous, setIsAnonymous] = useState(false);
+
+  // Complete email link sign-in if the user arrived via an email link
+  useEffect(() => {
+    if (isSignInWithEmailLink(auth, window.location.href)) {
+      let email = window.localStorage.getItem(EMAIL_LINK_KEY);
+      if (!email) {
+        email = window.prompt("Please confirm your email address");
+      }
+      if (email) {
+        signInWithEmailLink(auth, email, window.location.href)
+          .then(() => window.localStorage.removeItem(EMAIL_LINK_KEY))
+          .catch((err) => console.error("Email link sign-in failed:", err));
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
@@ -89,6 +110,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signInWithPopup(auth, provider);
   };
 
+  const sendEmailLink = async (email: string) => {
+    const actionCodeSettings = {
+      url: window.location.origin + "/auth",
+      handleCodeInApp: true,
+    };
+    await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+    window.localStorage.setItem(EMAIL_LINK_KEY, email);
+  };
+
   const loginAsGuest = async () => {
     const credential = await signInAnonymously(auth);
     // Seed demo data for guest users
@@ -124,6 +154,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         login,
         register,
         loginWithGoogle,
+        sendEmailLink,
         loginAsGuest,
         upgradeAccount,
         logout,
