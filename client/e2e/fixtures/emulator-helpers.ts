@@ -6,18 +6,21 @@ const AUTH_EMULATOR = process.env.FIREBASE_AUTH_EMULATOR_HOST || 'localhost:9099
 const PROJECT_ID = 'demo-webhook';
 
 /**
- * Login as guest via the real Firebase Auth emulator.
- * Navigates to /auth, clicks "Continue as Guest", waits for dashboard redirect.
+ * Login as guest via the UI.
+ * Navigates to /auth, clicks "Continue as Guest", waits for dashboard.
  */
 export async function loginAsGuest(page: Page): Promise<void> {
   await page.goto('/auth');
-  await expect(page.getByText('Guest')).toBeVisible({ timeout: 10000 });
-  await page.getByText('Guest').click();
+  // click() auto-waits for visibility — no separate expect needed
+  await page.getByText('Guest').click({ timeout: 15000 });
   await page.waitForURL('**/dashboard', { timeout: 20000 });
+  await expect(
+    page.getByRole('button', { name: /ADD NEW/i }).first()
+  ).toBeVisible({ timeout: 15000 });
 }
 
 /**
- * Create an endpoint via the dashboard UI using the real Firestore emulator.
+ * Create an endpoint via the dashboard UI.
  */
 export async function createEndpointViaUI(page: Page, name: string): Promise<void> {
   const createBtn = page.getByRole('button', { name: 'ADD NEW' }).first();
@@ -40,6 +43,17 @@ export async function createEndpointViaUI(page: Page, name: string): Promise<voi
 export async function navigateToEndpoint(page: Page, name: string): Promise<void> {
   await page.getByText(name).click();
   await page.waitForURL('**/dashboard/endpoint/**', { timeout: 10000 });
+  await expect(page.locator('[data-testid="back-button"]')).toBeVisible({ timeout: 10000 });
+}
+
+/**
+ * Navigate to the script editor from the endpoint detail page.
+ */
+export async function navigateToScriptEditor(page: Page): Promise<void> {
+  const scriptEditorBtn = page.getByRole('button', { name: /Script Editor/i });
+  await expect(scriptEditorBtn).toBeVisible({ timeout: 5000 });
+  await scriptEditorBtn.click();
+  await page.waitForURL('**/script', { timeout: 10000 });
 }
 
 /**
@@ -101,13 +115,11 @@ export async function sendWebhookRequests(
 
 /**
  * Disable an endpoint via the dashboard dropdown menu.
- * Page must be on the dashboard with the endpoint visible.
  */
 export async function disableEndpointViaUI(page: Page, name: string): Promise<void> {
   const card = page.locator('.webhook-card', { hasText: name }).first();
   await card.getByLabel('Options').click();
   await page.getByRole('menuitem', { name: 'Disable' }).click();
-  // Wait for the card to update to Closed status
   await expect(card.getByText('Closed')).toBeVisible({ timeout: 5000 });
 }
 
@@ -122,7 +134,7 @@ export async function waitForRequests(page: Page, count: number): Promise<void> 
 }
 
 /**
- * Clear all Firestore emulator data. Call between test suites for isolation.
+ * Clear all Firestore emulator data.
  */
 export async function clearFirestoreData(): Promise<void> {
   await fetch(

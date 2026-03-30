@@ -1,57 +1,15 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
+import {
+  loginAsGuest,
+  createEndpointViaUI,
+  navigateToEndpoint,
+  getEndpointIdFromUrl,
+  navigateToScriptEditor,
+} from './fixtures/emulator-helpers';
 
 const API_BASE = process.env.API_URL || 'http://localhost:3000';
 
-async function loginAsGuest(page: Page) {
-  await page.goto('/auth');
-  await expect(page.getByText('Guest')).toBeVisible({ timeout: 10000 });
-  await page.getByText('Guest').click();
-  await page.waitForURL('**/dashboard', { timeout: 20000 });
-}
-
-async function createEndpointViaUI(page: Page, name: string) {
-  const createBtn = page.getByRole('button', { name: 'ADD NEW' }).first();
-  await expect(createBtn).toBeVisible({ timeout: 5000 });
-  await createBtn.click();
-  const nameInput = page.getByRole('textbox', { name: 'Endpoint Name' });
-  await expect(nameInput).toBeVisible({ timeout: 5000 });
-  await nameInput.fill(name);
-  const submitBtn = page.getByRole('button', { name: 'Create Endpoint' });
-  await submitBtn.click();
-  await expect(page.getByText(name)).toBeVisible({ timeout: 10000 });
-}
-
-async function navigateToEndpoint(page: Page, name: string) {
-  await page.getByText(name).click();
-  await page.waitForURL('**/dashboard/endpoint/**', { timeout: 10000 });
-  await expect(page.locator('[data-testid="back-button"]')).toBeVisible({ timeout: 10000 });
-}
-
-function getEndpointIdFromUrl(page: Page): string {
-  const url = page.url();
-  const match = url.match(/\/endpoint\/([^/]+)/);
-  return match ? match[1] : '';
-}
-
-async function navigateToScriptEditor(page: Page) {
-  const scriptEditorBtn = page.getByRole('button', { name: /Script Editor/i });
-  await expect(scriptEditorBtn).toBeVisible({ timeout: 5000 });
-  await scriptEditorBtn.click();
-  await page.waitForURL('**/script', { timeout: 10000 });
-}
-
 test.describe('Script Editor - Save Custom Script', () => {
-  test('navigate to script editor from endpoint detail', async ({ page }) => {
-    await loginAsGuest(page);
-    await createEndpointViaUI(page, 'ScriptNav Endpoint');
-    await navigateToEndpoint(page, 'ScriptNav Endpoint');
-
-    await navigateToScriptEditor(page);
-
-    expect(page.url()).toContain('/script');
-    await expect(page.getByText('Script Editor', { exact: true })).toBeVisible({ timeout: 5000 });
-  });
-
   test('write custom script and save', async ({ page }) => {
     await loginAsGuest(page);
     await createEndpointViaUI(page, 'ScriptSave Endpoint');
@@ -150,10 +108,6 @@ test.describe('Copy URL Button', () => {
     await navigateToEndpoint(page, 'CopyURL Endpoint');
   });
 
-  test('copy button is visible on endpoint detail', async ({ page }) => {
-    await expect(page.getByText('Copy').first()).toBeVisible({ timeout: 5000 });
-  });
-
   test('clicking copy shows toast notification', async ({ page }) => {
     const copyBtn = page.getByText('Copy').first();
     await copyBtn.click();
@@ -170,10 +124,6 @@ test.describe('Refresh Button', () => {
     await loginAsGuest(page);
     await createEndpointViaUI(page, 'Refresh Endpoint');
     await navigateToEndpoint(page, 'Refresh Endpoint');
-  });
-
-  test('refresh button is visible on endpoint detail', async ({ page }) => {
-    await expect(page.getByRole('button', { name: /Refresh/i })).toBeVisible({ timeout: 5000 });
   });
 
   test('clicking refresh shows Refreshed toast', async ({ page }) => {

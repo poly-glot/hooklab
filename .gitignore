@@ -30,3 +30,4 @@ client/e2e/screenshots/
 client/e2e/audit/
 client/test-results/
 client/.vite/
+client/playwright-report/

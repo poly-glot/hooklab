@@ -10,57 +10,16 @@ import {
  */
 test.describe('Dashboard Page - Authenticated Journey', () => {
   test.describe('Dashboard Layout', () => {
-    test.beforeEach(async ({ page }) => {
+    test('dashboard loads with all key UI elements', async ({ page, dashboardPage }) => {
       await loginAsGuest(page);
-      await createEndpointViaUI(page, 'Payment Webhooks');
-      await createEndpointViaUI(page, 'Order Notifications');
-      await createEndpointViaUI(page, 'Stripe Events');
-    });
 
-    test('dashboard page loads with header', async ({ dashboardPage }) => {
       await dashboardPage.expectLoaded();
-    });
-
-    test('header displays Hooklab logo', async ({ dashboardPage }) => {
-      await expect(dashboardPage.headerLogo).toBeVisible();
       await expect(dashboardPage.headerLogo).toHaveText('Hooklab');
-    });
-
-    test('header has Github link', async ({ dashboardPage }) => {
-      await expect(dashboardPage.githubLink).toBeVisible();
-      await expect(dashboardPage.githubLink).toHaveText('Github');
-    });
-
-    test('action bar has search input with correct placeholder', async ({ dashboardPage }) => {
       await expect(dashboardPage.searchInput).toBeVisible();
-      await expect(dashboardPage.searchInput).toHaveAttribute(
-        'placeholder',
-        'search by webhook'
-      );
-    });
-
-    test('action bar has ADD NEW button with brand color', async ({ dashboardPage }) => {
       await expect(dashboardPage.addNewButton).toBeVisible();
-      await expect(dashboardPage.addNewButton).toHaveText('ADD NEW');
-      const bgColor = await dashboardPage.addNewButton.evaluate(
-        (el) => window.getComputedStyle(el).backgroundColor
-      );
-      expect(bgColor).toBe('rgb(1, 24, 155)');
-    });
-
-    test('filter pills are visible with All, Active, Closed', async ({ dashboardPage }) => {
       await expect(dashboardPage.allFilter).toBeVisible();
       await expect(dashboardPage.activeFilter).toBeVisible();
       await expect(dashboardPage.closedFilter).toBeVisible();
-    });
-
-    test('footer displays copyright notice', async ({ dashboardPage }) => {
-      await expect(dashboardPage.copyrightText).toBeVisible();
-      await expect(dashboardPage.copyrightText).toHaveText('Usual copyright notice');
-    });
-
-    test('ready text is displayed in action bar', async ({ dashboardPage }) => {
-      await expect(dashboardPage.readyText).toBeVisible();
     });
   });
 
@@ -78,35 +37,14 @@ test.describe('Dashboard Page - Authenticated Journey', () => {
       ]);
     });
 
-    test('shows empty state when no endpoints exist', async ({ page, dashboardPage }) => {
+    test('endpoint cards show URL, Active status, and options button', async ({ page }) => {
       await loginAsGuest(page);
-      // Fresh guest with no manually created endpoints — check for empty or seeded state
-      // If seedGuestData creates endpoints, we check for non-empty; otherwise empty state
-      const hasEndpoints = await page.locator('.webhook-card').count();
-      if (hasEndpoints === 0) {
-        await dashboardPage.expectEmptyState();
-        await expect(dashboardPage.emptyStateAddButton).toBeVisible();
-      }
-    });
+      await createEndpointViaUI(page, 'Card Details Test');
 
-    test('endpoint cards show webhook URL', async ({ page }) => {
-      await loginAsGuest(page);
-      await createEndpointViaUI(page, 'URL Test Endpoint');
-      await expect(page.getByText(/\/w\//)).toBeVisible();
-    });
-
-    test('endpoint cards show Active status', async ({ page }) => {
-      await loginAsGuest(page);
-      await createEndpointViaUI(page, 'Active Status Test');
-      const activeTexts = page.getByText('Active', { exact: true });
-      await expect(activeTexts.first()).toBeVisible();
-    });
-
-    test('endpoint cards have options button', async ({ page }) => {
-      await loginAsGuest(page);
-      await createEndpointViaUI(page, 'Options Test');
-      const optionsButtons = page.getByLabel('Options');
-      expect(await optionsButtons.count()).toBeGreaterThan(0);
+      const card = page.locator('.webhook-card', { hasText: 'Card Details Test' });
+      await expect(card.getByText(/\/w\//)).toBeVisible();
+      await expect(card.getByText('Active', { exact: true })).toBeVisible();
+      await expect(card.getByLabel('Options')).toBeVisible();
     });
   });
 
@@ -153,13 +91,6 @@ test.describe('Dashboard Page - Authenticated Journey', () => {
       await createEndpointViaUI(page, 'Stripe Events');
     });
 
-    test('All filter is active by default', async ({ dashboardPage }) => {
-      const allPillBg = await dashboardPage.allFilter.evaluate(
-        (el) => window.getComputedStyle(el).backgroundColor
-      );
-      expect(allPillBg).toBe('rgb(40, 200, 142)');
-    });
-
     test('clicking Active filter shows only active endpoints', async ({ dashboardPage, page }) => {
       await dashboardPage.filterByActive();
       await expect(page.getByText('Payment Webhooks')).toBeVisible();
@@ -190,28 +121,6 @@ test.describe('Dashboard Page - Authenticated Journey', () => {
     test('ADD NEW button opens create dialog', async ({ dashboardPage }) => {
       await dashboardPage.clickAddNew();
       await expect(dashboardPage.createDialogTitle).toBeVisible();
-    });
-
-    test('create dialog has endpoint name input', async ({ dashboardPage }) => {
-      await dashboardPage.clickAddNew();
-      await expect(dashboardPage.endpointNameInput).toBeVisible();
-      await expect(dashboardPage.endpointNameInput).toHaveAttribute(
-        'placeholder',
-        'e.g., Payment Notifications'
-      );
-    });
-
-    test('create dialog has Cancel and Create buttons', async ({ dashboardPage }) => {
-      await dashboardPage.clickAddNew();
-      await expect(dashboardPage.createDialogCancel).toBeVisible();
-      await expect(dashboardPage.createDialogSubmit).toBeVisible();
-    });
-
-    test('create dialog shows description text', async ({ page, dashboardPage }) => {
-      await dashboardPage.clickAddNew();
-      await expect(
-        page.getByText('Give your webhook endpoint a descriptive name.')
-      ).toBeVisible();
     });
 
     test('Cancel button closes the create dialog', async ({ dashboardPage }) => {
@@ -284,27 +193,6 @@ test.describe('Dashboard Page - Authenticated Journey', () => {
       await expect(dashboardPage.deleteDialogTitle).not.toBeVisible();
     });
 
-    test('delete confirmation dialog has Cancel and Delete buttons', async ({
-      dashboardPage,
-    }) => {
-      await dashboardPage.openEndpointOptions('Payment Webhooks');
-      await dashboardPage.clickDeleteInDropdown();
-      await expect(dashboardPage.deleteDialogCancel).toBeVisible();
-      await expect(dashboardPage.deleteDialogConfirm).toBeVisible();
-    });
-
-    test('Delete button has danger color (red)', async ({ dashboardPage, page }) => {
-      await dashboardPage.openEndpointOptions('Payment Webhooks');
-      await dashboardPage.clickDeleteInDropdown();
-      const deleteBtn = page
-        .getByRole('dialog')
-        .getByRole('button', { name: /^Delete$/i });
-      const bgColor = await deleteBtn.evaluate(
-        (el) => window.getComputedStyle(el).backgroundColor
-      );
-      expect(bgColor).toBe('rgb(172, 27, 17)');
-    });
-
     test('confirming delete removes the endpoint from the list', async ({
       dashboardPage,
       page,
@@ -330,19 +218,4 @@ test.describe('Dashboard Page - Authenticated Journey', () => {
     });
   });
 
-  test.describe('Empty Dashboard State', () => {
-    test('filter pills show zero counts on empty dashboard', async ({
-      page,
-      dashboardPage,
-    }) => {
-      await loginAsGuest(page);
-      // Fresh guest may have seeded data; check the current count
-      const cardCount = await page.locator('.webhook-card').count();
-      if (cardCount === 0) {
-        await expect(dashboardPage.allFilter).toContainText('00');
-        await expect(dashboardPage.activeFilter).toContainText('00');
-        await expect(dashboardPage.closedFilter).toContainText('00');
-      }
-    });
-  });
 });

@@ -167,7 +167,8 @@ export class DashboardPage {
 
   async openEndpointOptions(name: string) {
     const card = this.page.locator('.webhook-card', { hasText: name }).first();
-    await card.getByLabel('Options').click();
+    await expect(card).toBeVisible({ timeout: 10000 });
+    await card.locator('[aria-label="Options"]').click();
   }
 
   async clickDeleteInDropdown() {

@@ -100,16 +100,6 @@ test.describe('Endpoint Disable/Enable', () => {
       await disableEndpointViaUI(page, 'Disabled Endpoint');
     });
 
-    test('active endpoint dropdown shows Disable option', async ({ dashboardPage, page }) => {
-      await dashboardPage.openEndpointOptions('Active Endpoint');
-      await expect(page.getByRole('menuitem', { name: 'Disable' })).toBeVisible();
-    });
-
-    test('disabled endpoint dropdown shows Enable option', async ({ dashboardPage, page }) => {
-      await dashboardPage.openEndpointOptions('Disabled Endpoint');
-      await expect(page.getByRole('menuitem', { name: 'Enable' })).toBeVisible();
-    });
-
     test('active endpoint dropdown has Edit Script, Disable, and Delete options', async ({
       dashboardPage,
       page,

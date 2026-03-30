@@ -28,6 +28,7 @@ const mockEndpoint: Endpoint = {
   defaultContentType: "application/json",
   defaultBody: '{"ok":true}',
   isActive: true,
+  totalExecutions: 0,
   createdAt: new Date().toISOString(),
 };
 

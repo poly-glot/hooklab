@@ -76,40 +76,37 @@ if [ -f "functions/package.json" ]; then
     FUNCTIONS_PID=$!
 fi
 
-# Show progress while waiting for parallel installs
-PIDS=()
-[ -n "$ROOT_PID" ] && PIDS+=($ROOT_PID)
-[ -n "$CLIENT_PID" ] && PIDS+=($CLIENT_PID)
-[ -n "$FUNCTIONS_PID" ] && PIDS+=($FUNCTIONS_PID)
+# Wait for parallel installs
+FAILED=0
 
-SPINNER='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
-i=0
-while true; do
-    ALL_DONE=true
-    for PID in "${PIDS[@]}"; do
-        if kill -0 "$PID" 2>/dev/null; then
-            ALL_DONE=false
-            break
-        fi
-    done
-    $ALL_DONE && break
+if [ -n "$ROOT_PID" ]; then
+    echo "  Waiting for root install..."
+    if ! wait $ROOT_PID; then
+        echo "❌ root install failed:"; cat /tmp/root-install.log; FAILED=1
+    else
+        echo "  ✓ root install done"
+    fi
+fi
 
-    # Print spinner with latest log tail
-    CHAR="${SPINNER:$((i % ${#SPINNER})):1}"
-    ROOT_MSG=$(tail -1 /tmp/root-install.log 2>/dev/null | sed 's/^[[:space:]]*//' | cut -c1-60)
-    CLIENT_MSG=$(tail -1 /tmp/client-install.log 2>/dev/null | sed 's/^[[:space:]]*//' | cut -c1-60)
-    printf "\r%s  root: %-62s" "$CHAR" "${ROOT_MSG:-waiting...}"
-    printf "\n%s  client: %-60s" "$CHAR" "${CLIENT_MSG:-waiting...}"
-    printf "\033[1A"  # move cursor up 1 line
-    i=$((i + 1))
-    sleep 0.3
-done
-printf "\r%-80s\n%-80s\n" "" ""  # clear spinner lines
+if [ -n "$CLIENT_PID" ]; then
+    echo "  Waiting for client install..."
+    if ! wait $CLIENT_PID; then
+        echo "❌ client install failed:"; cat /tmp/client-install.log; FAILED=1
+    else
+        echo "  ✓ client install done"
+    fi
+fi
 
-# Check exit codes
-[ -n "$ROOT_PID" ] && wait $ROOT_PID || { echo "❌ root install failed — see /tmp/root-install.log"; cat /tmp/root-install.log; exit 1; }
-[ -n "$CLIENT_PID" ] && wait $CLIENT_PID || { echo "❌ client install failed — see /tmp/client-install.log"; cat /tmp/client-install.log; exit 1; }
-[ -n "$FUNCTIONS_PID" ] && wait $FUNCTIONS_PID || { echo "❌ functions install failed — see /tmp/functions-install.log"; cat /tmp/functions-install.log; exit 1; }
+if [ -n "$FUNCTIONS_PID" ]; then
+    echo "  Waiting for functions install..."
+    if ! wait $FUNCTIONS_PID; then
+        echo "❌ functions install failed:"; cat /tmp/functions-install.log; FAILED=1
+    else
+        echo "  ✓ functions install done"
+    fi
+fi
+
+[ $FAILED -ne 0 ] && exit 1
 
 # ============================================================
 # Done!

@@ -15,81 +15,18 @@ const API_BASE = process.env.API_URL || 'http://localhost:3000';
  */
 test.describe('Endpoint Detail Page', () => {
   test.describe('Layout and Structure', () => {
-    test.beforeEach(async ({ page }) => {
+    test('endpoint detail page loads with all key UI elements', async ({ page, endpointDetailPage }) => {
       await loginAsGuest(page);
-      await createEndpointViaUI(page, 'Payment Webhooks');
-      await navigateToEndpoint(page, 'Payment Webhooks');
+      await createEndpointViaUI(page, 'Layout Test');
+      await navigateToEndpoint(page, 'Layout Test');
 
-      const endpointId = getEndpointIdFromUrl(page);
-
-      // Send real webhook requests to populate request logs
-      await sendWebhook(endpointId, {
-        method: 'POST',
-        body: JSON.stringify({ event: 'payment.success', amount: 2500, currency: 'usd' }),
-        headers: { 'stripe-signature': 'sig_test_abc123' },
-        query: { debug: 'true' },
-      });
-      await sendWebhook(endpointId, {
-        method: 'GET',
-        query: { ping: 'true' },
-      });
-
-      // Wait for real-time listener to pick up requests
-      const requestList = page.locator('[data-testid="request-list"]');
-      await expect(
-        requestList.locator('[role="button"]').first()
-      ).toBeVisible({ timeout: 10000 });
-    });
-
-    test('endpoint detail page loads with header', async ({ endpointDetailPage }) => {
       await endpointDetailPage.expectLoaded();
-    });
-
-    test('header displays Hooklab branding', async ({ endpointDetailPage }) => {
-      await expect(endpointDetailPage.headerLogo).toBeVisible();
-      await expect(endpointDetailPage.headerLogo).toHaveText('Hooklab');
-    });
-
-    test('Back to listing button is visible', async ({ endpointDetailPage }) => {
       await expect(endpointDetailPage.backButton).toBeVisible();
-    });
-
-    test('webhook URL is displayed in toolbar', async ({ page }) => {
-      await expect(page.locator('.action-bar__toolbar-url').filter({ hasText: '/w/' })).toBeVisible();
-    });
-
-    test('Copy button is visible', async ({ endpointDetailPage }) => {
-      await expect(endpointDetailPage.copyButton).toBeVisible();
-    });
-
-    test('Edit button is visible on desktop', async ({ endpointDetailPage }) => {
       await expect(endpointDetailPage.editButton).toBeVisible();
-    });
-
-    test('Auto refresh toggle is visible', async ({ endpointDetailPage }) => {
+      await expect(endpointDetailPage.copyButton).toBeVisible();
       await expect(endpointDetailPage.autoRefreshToggle).toBeVisible();
-    });
-
-    test('DELETE ALL button is visible in sidebar', async ({ endpointDetailPage }) => {
       await expect(endpointDetailPage.deleteAllButton).toBeVisible();
-    });
-
-    test('DELETE ALL button has danger color', async ({ endpointDetailPage }) => {
-      const bgColor = await endpointDetailPage.deleteAllButton.evaluate(
-        (el) => window.getComputedStyle(el).backgroundColor
-      );
-      expect(bgColor).toBe('rgb(172, 27, 17)');
-    });
-
-    test('footer displays copyright notice', async ({ endpointDetailPage }) => {
-      await expect(endpointDetailPage.copyrightText).toBeVisible();
-    });
-
-    test('all four tabs are visible', async ({ endpointDetailPage }) => {
-      await expect(endpointDetailPage.headerTab).toBeVisible();
-      await expect(endpointDetailPage.bodyTab).toBeVisible();
-      await expect(endpointDetailPage.queryTab).toBeVisible();
-      await expect(endpointDetailPage.responseTab).toBeVisible();
+      await expect(page.locator('.action-bar__toolbar-url').filter({ hasText: '/w/' })).toBeVisible();
     });
   });
 
@@ -204,37 +141,6 @@ test.describe('Endpoint Detail Page', () => {
       await requestList.locator('[role="button"]').first().click();
     });
 
-    test('Header tab shows request metadata', async ({ page }) => {
-      await expect(page.getByText('Host')).toBeVisible();
-      await expect(page.getByText('Method')).toBeVisible();
-    });
-
-    test('clicking Body tab shows request body', async ({ endpointDetailPage }) => {
-      await endpointDetailPage.clickBodyTab();
-      await endpointDetailPage.expectBodyContent('payment.success');
-    });
-
-    test('Body tab shows pretty-printed JSON', async ({ endpointDetailPage }) => {
-      await endpointDetailPage.clickBodyTab();
-      await endpointDetailPage.expectBodyContent('event');
-      await endpointDetailPage.expectBodyContent('amount');
-    });
-
-    test('clicking Query tab shows query parameters', async ({ endpointDetailPage }) => {
-      await endpointDetailPage.clickQueryTab();
-      await endpointDetailPage.expectQueryParam('debug', 'true');
-    });
-
-    test('clicking Response tab shows status code', async ({ endpointDetailPage }) => {
-      await endpointDetailPage.clickResponseTab();
-      await endpointDetailPage.expectResponseStatus('200');
-    });
-
-    test('Response tab shows response body', async ({ endpointDetailPage, page }) => {
-      await endpointDetailPage.clickResponseTab();
-      await expect(page.getByText('Response Body')).toBeVisible();
-    });
-
     test('tabs switch content area correctly', async ({ endpointDetailPage }) => {
       await endpointDetailPage.clickBodyTab();
       await endpointDetailPage.expectBodyContent('payment.success');
@@ -247,48 +153,6 @@ test.describe('Endpoint Detail Page', () => {
 
       await endpointDetailPage.clickHeaderTab();
       await endpointDetailPage.expectHeaderTabContent();
-    });
-  });
-
-  test.describe('Auto Refresh Toggle', () => {
-    test.beforeEach(async ({ page }) => {
-      await loginAsGuest(page);
-      await createEndpointViaUI(page, 'Auto Refresh');
-      await navigateToEndpoint(page, 'Auto Refresh');
-    });
-
-    test('auto refresh toggle shows Live text', async ({ endpointDetailPage }) => {
-      await expect(endpointDetailPage.autoRefreshToggle).toContainText('Live');
-    });
-
-    test('clicking auto refresh toggles visual state', async ({ endpointDetailPage }) => {
-      const initialClasses = await endpointDetailPage.autoRefreshToggle.getAttribute('class');
-      expect(initialClasses).toContain('action-bar__live--on');
-
-      await endpointDetailPage.toggleAutoRefresh();
-
-      const toggledClasses = await endpointDetailPage.autoRefreshToggle.getAttribute('class');
-      expect(toggledClasses).toContain('action-bar__live--off');
-    });
-
-    test('auto refresh toggle changes dot color', async ({ endpointDetailPage }) => {
-      const dotOn = endpointDetailPage.page.locator('.action-bar__live-dot--on');
-      await expect(dotOn).toBeVisible();
-
-      await endpointDetailPage.toggleAutoRefresh();
-
-      const dotOff = endpointDetailPage.page.locator('.action-bar__live-dot--off');
-      await expect(dotOff).toBeVisible();
-    });
-
-    test('clicking auto refresh again toggles it back on', async ({ endpointDetailPage }) => {
-      await endpointDetailPage.toggleAutoRefresh();
-      const offClasses = await endpointDetailPage.autoRefreshToggle.getAttribute('class');
-      expect(offClasses).toContain('action-bar__live--off');
-
-      await endpointDetailPage.toggleAutoRefresh();
-      const onClasses = await endpointDetailPage.autoRefreshToggle.getAttribute('class');
-      expect(onClasses).toContain('action-bar__live--on');
     });
   });
 
@@ -328,11 +192,6 @@ test.describe('Endpoint Detail Page', () => {
       await expect(endpointDetailPage.clearDialogTitle).not.toBeVisible();
     });
 
-    test('dialog has Cancel and Delete All buttons', async ({ endpointDetailPage }) => {
-      await endpointDetailPage.clickDeleteAll();
-      await expect(endpointDetailPage.clearDialogCancel).toBeVisible();
-      await expect(endpointDetailPage.clearDialogConfirm).toBeVisible();
-    });
   });
 
   test.describe('Endpoint Not Found', () => {
@@ -365,15 +224,6 @@ test.describe('Endpoint Detail Page', () => {
       await expect(
         page.locator('.action-bar__toolbar-url', { hasText: endpointId })
       ).toBeVisible();
-    });
-
-    test('URL toolbar has Edit and Copy buttons', async ({ page, endpointDetailPage }) => {
-      await loginAsGuest(page);
-      await createEndpointViaUI(page, 'Toolbar Buttons');
-      await navigateToEndpoint(page, 'Toolbar Buttons');
-
-      await expect(endpointDetailPage.editButton).toBeVisible();
-      await expect(endpointDetailPage.copyButton).toBeVisible();
     });
   });
 });

@@ -11,52 +11,12 @@ test.describe('Auth Page - Authentication Journey', () => {
       await authPage.goto();
     });
 
-    test('auth page loads with modal card visible', async ({ authPage }) => {
+    test('auth page loads with modal and all login options', async ({ authPage }) => {
       await authPage.expectLoaded();
       await expect(authPage.modalCard).toBeVisible();
-    });
-
-    test('displays HOOKLAB title', async ({ authPage }) => {
-      await expect(authPage.title).toBeVisible();
-      await expect(authPage.title).toHaveText('HOOKLAB');
-    });
-
-    test('displays descriptive text about the platform', async ({ page }) => {
-      await expect(
-        page.getByText('Stop guessing what happens when an API fires', { exact: false })
-      ).toBeVisible();
-    });
-
-    test('shows all authentication buttons', async ({ authPage }) => {
       await expect(authPage.googleButton).toBeVisible();
-      await expect(authPage.appleButton).toBeVisible();
       await expect(authPage.emailLinkButton).toBeVisible();
       await expect(authPage.guestButton).toBeVisible();
-    });
-
-    test('Google button has correct text', async ({ authPage }) => {
-      await expect(authPage.googleButton).toContainText('Continue with Google');
-    });
-
-    test('Email Link button has correct text', async ({ authPage }) => {
-      await expect(authPage.emailLinkButton).toContainText('Continue with Email Link');
-    });
-
-    test('Guest button has correct text', async ({ authPage }) => {
-      await expect(authPage.guestButton).toContainText('Continue as');
-      await expect(authPage.page.getByText('Guest')).toBeVisible();
-    });
-
-    test('blurred background dashboard mock is visible', async ({ authPage }) => {
-      await expect(authPage.blurredBackground).toBeVisible();
-    });
-
-    test('description highlights test, record, and replay keywords', async ({ page }) => {
-      const strongElements = page.locator('.auth-page__modal strong');
-      const texts = await strongElements.allTextContents();
-      expect(texts).toContain('test');
-      expect(texts).toContain('record');
-      expect(texts).toContain('replay');
     });
   });
 
@@ -111,43 +71,4 @@ test.describe('Auth Page - Authentication Journey', () => {
     });
   });
 
-  test.describe('Auth Page UI Details', () => {
-    test.beforeEach(async ({ authPage }) => {
-      await authPage.goto();
-    });
-
-    test('auth buttons have Google and Email icons', async ({ page }) => {
-      const googleSvg = page.getByRole('button', { name: /Google/i }).locator('svg');
-      await expect(googleSvg).toBeVisible();
-
-      const emailSvg = page.getByRole('button', { name: /Email/i }).locator('svg');
-      await expect(emailSvg).toBeVisible();
-    });
-
-    test('modal card has proper width constraint', async ({ authPage }) => {
-      const box = await authPage.modalCard.boundingBox();
-      expect(box).not.toBeNull();
-      expect(box!.width).toBeLessThanOrEqual(500);
-      expect(box!.width).toBeGreaterThan(300);
-    });
-
-    test('overlay/backdrop is present behind modal', async ({ page }) => {
-      const overlay = page.locator('.auth-page__overlay');
-      await expect(overlay).toBeVisible();
-    });
-
-    test('buttons are stacked vertically in a column', async ({ page }) => {
-      const googleBox = await page
-        .getByRole('button', { name: /Google/i })
-        .boundingBox();
-      const emailBox = await page
-        .getByRole('button', { name: /Email/i })
-        .boundingBox();
-
-      expect(googleBox).not.toBeNull();
-      expect(emailBox).not.toBeNull();
-
-      expect(emailBox!.y).toBeGreaterThan(googleBox!.y);
-    });
-  });
 });

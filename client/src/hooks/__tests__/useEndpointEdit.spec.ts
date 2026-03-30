@@ -20,6 +20,7 @@ const mockEndpoint: Endpoint = {
   defaultContentType: "text/plain",
   defaultBody: "hello",
   isActive: true,
+  totalExecutions: 0,
   createdAt: new Date().toISOString(),
 };
 

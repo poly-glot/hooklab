@@ -15,11 +15,18 @@ export function useExecutions(endpointId: string | undefined, autoRefresh: boole
   const [currentPage, setCurrentPage] = useState(0);
 
   const selectedRequestRef = useRef<RequestLog | null>(null);
+  const clearingRef = useRef(false);
 
   // Real-time listener for executions
   useEffect(() => {
     if (!endpointId || !autoRefresh) return;
     const unsubscribe = onExecutionsSnapshot(endpointId, (executions) => {
+      if (clearingRef.current) {
+        if (executions.length === 0) {
+          clearingRef.current = false;
+        }
+        return;
+      }
       setRequests(executions);
       if (!selectedRequestRef.current && executions.length > 0) {
         setSelectedRequest(executions[0]);
@@ -37,6 +44,7 @@ export function useExecutions(endpointId: string | undefined, autoRefresh: boole
   const clearAll = useCallback(async () => {
     if (!endpointId) return;
     try {
+      clearingRef.current = true;
       await clearExecutions(endpointId);
       setRequests([]);
       setSelectedRequest(null);
@@ -44,6 +52,7 @@ export function useExecutions(endpointId: string | undefined, autoRefresh: boole
       setCurrentPage(0);
       toast.success('All requests cleared');
     } catch {
+      clearingRef.current = false;
       toast.error('Failed to clear requests');
     }
   }, [endpointId]);

@@ -37,6 +37,7 @@ function makeEndpoint(overrides: Partial<Endpoint> = {}): Endpoint {
     defaultContentType: "application/json",
     defaultBody: '{"ok":true}',
     isActive: true,
+    totalExecutions: 0,
     createdAt: new Date().toISOString(),
     ...overrides,
   };

@@ -9,6 +9,9 @@ import {
   signOut as firebaseSignOut,
   linkWithCredential,
   EmailAuthProvider,
+  sendSignInLinkToEmail,
+  isSignInWithEmailLink,
+  signInWithEmailLink,
   type User as FirebaseUser,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase-init";
@@ -20,14 +23,19 @@ import {
 } from "@/lib/firestore";
 import type { User } from "@/lib/api";
 
+const EMAIL_LINK_KEY = "emailForSignIn";
+
 interface AuthContextType {
   user: User | null;
   firebaseUser: FirebaseUser | null;
   isLoading: boolean;
   isAnonymous: boolean;
+  pendingEmailConfirmation: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
+  sendEmailLink: (email: string) => Promise<void>;
+  confirmEmailLink: (email: string) => Promise<void>;
   loginAsGuest: () => Promise<void>;
   upgradeAccount: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -40,8 +48,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAnonymous, setIsAnonymous] = useState(false);
+  const [emailLinkPending, setEmailLinkPending] = useState(
+    () => isSignInWithEmailLink(auth, window.location.href)
+  );
+  const [pendingEmailConfirmation, setPendingEmailConfirmation] =
+    useState(false);
 
+  const completeEmailLinkSignIn = (email: string) =>
+    signInWithEmailLink(auth, email, window.location.href)
+      .then(() => {
+        window.localStorage.removeItem(EMAIL_LINK_KEY);
+        window.history.replaceState({}, "", "/auth");
+      })
+      .finally(() => {
+        setEmailLinkPending(false);
+        setPendingEmailConfirmation(false);
+      });
+
+  // Complete email link sign-in if the user arrived via an email link
   useEffect(() => {
+    if (!emailLinkPending) return;
+
+    const email = window.localStorage.getItem(EMAIL_LINK_KEY);
+    if (email) {
+      completeEmailLinkSignIn(email).catch((err) =>
+        console.error("Email link sign-in failed:", err)
+      );
+    } else {
+      // Opened in a different browser — ask user to confirm email via UI
+      setPendingEmailConfirmation(true);
+    }
+  }, [emailLinkPending]);
+
+  // Delay auth listener until any email link sign-in is resolved
+  useEffect(() => {
+    if (emailLinkPending) return;
+
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
         setFirebaseUser(fbUser);
@@ -74,7 +116,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [emailLinkPending]);
 
   const login = async (email: string, password: string) => {
     await signInWithEmailAndPassword(auth, email, password);
@@ -87,6 +129,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loginWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
     await signInWithPopup(auth, provider);
+  };
+
+  const sendEmailLink = async (email: string) => {
+    const actionCodeSettings = {
+      url: window.location.origin + "/auth",
+      handleCodeInApp: true,
+    };
+    await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+    window.localStorage.setItem(EMAIL_LINK_KEY, email);
+  };
+
+  const confirmEmailLink = async (email: string) => {
+    await completeEmailLinkSignIn(email);
   };
 
   const loginAsGuest = async () => {
@@ -124,6 +179,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         login,
         register,
         loginWithGoogle,
+        sendEmailLink,
+        confirmEmailLink,
+        pendingEmailConfirmation,
         loginAsGuest,
         upgradeAccount,
         logout,

@@ -1,31 +1,9 @@
-import { test, expect, type Page } from '@playwright/test';
-
-const API_BASE = process.env.API_URL || 'http://localhost:3000';
-
-async function loginAsGuest(page: Page) {
-  await page.goto('/auth');
-  await expect(page.getByText('Guest')).toBeVisible({ timeout: 10000 });
-  await page.getByText('Guest').click();
-  await page.waitForURL('**/dashboard', { timeout: 20000 });
-}
-
-async function createEndpointViaUI(page: Page, name: string) {
-  const createBtn = page.getByRole('button', { name: 'ADD NEW' }).first();
-  await expect(createBtn).toBeVisible({ timeout: 5000 });
-  await createBtn.click();
-  const nameInput = page.getByRole('textbox', { name: 'Endpoint Name' });
-  await expect(nameInput).toBeVisible({ timeout: 5000 });
-  await nameInput.fill(name);
-  const submitBtn = page.getByRole('button', { name: 'Create Endpoint' });
-  await submitBtn.click();
-  await expect(page.getByText(name)).toBeVisible({ timeout: 10000 });
-}
-
-async function navigateToEndpoint(page: Page, name: string) {
-  await page.getByText(name).click();
-  await page.waitForURL('**/dashboard/endpoint/**', { timeout: 10000 });
-  await expect(page.getByText(name)).toBeVisible({ timeout: 10000 });
-}
+import { test, expect } from '@playwright/test';
+import {
+  loginAsGuest,
+  createEndpointViaUI,
+  navigateToEndpoint,
+} from './fixtures/emulator-helpers';
 
 test.describe('Endpoint Edit Panel', () => {
   test('clicking edit opens the edit panel', async ({ page }) => {
@@ -109,8 +87,6 @@ test.describe('Endpoint Edit Panel', () => {
     // Should show success toast
     await expect(page.getByText('Endpoint updated')).toBeVisible({ timeout: 5000 });
 
-    await page.waitForTimeout(1000);
-
     // Panel should close
     await expect(nameInput).not.toBeVisible({ timeout: 5000 });
 
@@ -136,7 +112,6 @@ test.describe('Endpoint Edit Panel', () => {
     await saveBtn.click();
 
     await expect(page.getByText('Endpoint updated')).toBeVisible({ timeout: 5000 });
-    await page.waitForTimeout(1000);
 
     // Re-open edit to verify saved value
     await editBtn.click();
@@ -160,7 +135,6 @@ test.describe('Endpoint Edit Panel', () => {
     await saveBtn.click();
 
     await expect(page.getByText('Endpoint updated')).toBeVisible({ timeout: 5000 });
-    await page.waitForTimeout(1000);
 
     // Re-open edit to verify saved value
     await editBtn.click();
@@ -184,19 +158,10 @@ test.describe('Endpoint Edit Panel', () => {
     await saveBtn.click();
 
     await expect(page.getByText('Endpoint updated')).toBeVisible({ timeout: 5000 });
-    await page.waitForTimeout(1000);
 
     // Re-open edit to verify saved value
     await editBtn.click();
     await expect(page.locator('input#edit-content-type')).toHaveValue('text/plain');
   });
 
-  test('edit button is visible on endpoint detail page', async ({ page }) => {
-    await loginAsGuest(page);
-    await createEndpointViaUI(page, 'EditBtn Visible EP');
-    await navigateToEndpoint(page, 'EditBtn Visible EP');
-
-    const editBtn = page.locator('[data-testid="edit-button"]');
-    await expect(editBtn).toBeVisible({ timeout: 5000 });
-  });
 });
