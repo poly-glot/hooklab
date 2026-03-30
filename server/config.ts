@@ -14,6 +14,9 @@ export const PROJECT_ID =
   Deno.env.get("FIREBASE_PROJECT_ID") ||
   "demo-webhook";
 
+/** Firestore database name — "(default)" for emulators, "hooklab" for production */
+export const FIRESTORE_DB = Deno.env.get("FIRESTORE_DB") || "(default)";
+
 /** Firestore emulator host (e.g., "127.0.0.1:8080") */
 export const FIRESTORE_EMULATOR_HOST = Deno.env.get("FIRESTORE_EMULATOR_HOST");
 

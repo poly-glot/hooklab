@@ -14,7 +14,7 @@ const isEmulator = process.env.FUNCTIONS_EMULATOR === "true";
 const region = "europe-west1";
 
 function db() {
-  return getFirestore();
+  return getFirestore("hooklab");
 }
 
 // ── 1. Seed guest data ─────────────────────────────────────────────
@@ -116,7 +116,7 @@ return {
 
 // ── 2. Execute webhook (called by Cloud Run / server) ──────────────
 export const recordExecution = onCall(
-  { enforceAppCheck: !isEmulator, region, timeoutSeconds: 30 },
+  { region, timeoutSeconds: 30 },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) {

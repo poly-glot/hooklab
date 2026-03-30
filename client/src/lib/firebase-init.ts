@@ -7,9 +7,14 @@ import {
 } from "firebase/auth";
 import {
   getFirestore,
+  initializeFirestore,
   connectFirestoreEmulator,
 } from "firebase/firestore";
 import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
+import {
+  initializeAppCheck,
+  ReCaptchaEnterpriseProvider,
+} from "firebase/app-check";
 
 // Enable emulator mode when VITE_USE_EMULATORS is set
 const isEmulatorMode =
@@ -63,9 +68,27 @@ if (isEmulatorMode) {
   );
 }
 
+// ── App Check ──────────────────────────────────────────────────────
+// In emulator mode, use the debug provider (set FIREBASE_APPCHECK_DEBUG_TOKEN in browser console).
+// In production, use reCAPTCHA Enterprise with the site key from env.
+if (isEmulatorMode) {
+  // @ts-expect-error debug token flag for Firebase App Check emulator/debug provider
+  self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+}
+
+const recaptchaSiteKey = import.meta.env.VITE_RECAPTCHA_ENTERPRISE_SITE_KEY;
+if (recaptchaSiteKey) {
+  initializeAppCheck(app, {
+    provider: new ReCaptchaEnterpriseProvider(recaptchaSiteKey),
+    isTokenAutoRefreshEnabled: true,
+  });
+}
+
 export { app };
 export const auth = getAuth(app);
-export const firestore = getFirestore(app);
+export const firestore = isEmulatorMode
+  ? getFirestore(app)
+  : initializeFirestore(app, {}, "hooklab");
 export const functions = getFunctions(app, "europe-west1");
 
 // Use session persistence — auth state is cleared when browser tab closes.

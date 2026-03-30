@@ -13,6 +13,7 @@ import {
   DEFAULT_BODY,
   DEFAULT_CONTENT_TYPE,
   DEFAULT_SCRIPT,
+  FIRESTORE_DB,
   DEFAULT_STATUS_CODE,
   FIRESTORE_EMULATOR_HOST,
   GCP_METADATA_TOKEN_URL,
@@ -79,15 +80,15 @@ function getBaseUrl(): string {
 }
 
 function docUrl(collection: string, docId: string): string {
-  return `${getBaseUrl()}/v1/projects/${PROJECT_ID}/databases/(default)/documents/${collection}/${docId}`;
+  return `${getBaseUrl()}/v1/projects/${PROJECT_ID}/databases/${FIRESTORE_DB}/documents/${collection}/${docId}`;
 }
 
 function collectionUrl(collection: string): string {
-  return `${getBaseUrl()}/v1/projects/${PROJECT_ID}/databases/(default)/documents/${collection}`;
+  return `${getBaseUrl()}/v1/projects/${PROJECT_ID}/databases/${FIRESTORE_DB}/documents/${collection}`;
 }
 
 function queryUrl(): string {
-  return `${getBaseUrl()}/v1/projects/${PROJECT_ID}/databases/(default)/documents:runQuery`;
+  return `${getBaseUrl()}/v1/projects/${PROJECT_ID}/databases/${FIRESTORE_DB}/documents:runQuery`;
 }
 
 async function authHeaders(): Promise<Record<string, string>> {
