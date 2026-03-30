@@ -39,7 +39,7 @@ function EmailIcon() {
 }
 
 export default function AuthPage() {
-  const { loginAsGuest, loginWithGoogle, sendEmailLink } = useAuth();
+  const { loginAsGuest, loginWithGoogle, sendEmailLink, confirmEmailLink, pendingEmailConfirmation } = useAuth();
   const navigate = useNavigate();
   const [showEmailInput, setShowEmailInput] = useState(false);
   const [email, setEmail] = useState('');
@@ -64,7 +64,7 @@ export default function AuthPage() {
   };
 
   const handleSendEmailLink = async () => {
-    if (!email) return;
+    if (!email || emailSending) return;
     setEmailSending(true);
     try {
       await sendEmailLink(email);
@@ -75,6 +75,28 @@ export default function AuthPage() {
       toast.error(e instanceof Error ? e.message : 'Failed to send sign-in link');
     } finally {
       setEmailSending(false);
+    }
+  };
+
+  const handleConfirmEmailLink = async () => {
+    if (!email || emailSending) return;
+    setEmailSending(true);
+    try {
+      await confirmEmailLink(email);
+      navigate('/dashboard');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Sign-in link expired or invalid');
+    } finally {
+      setEmailSending(false);
+    }
+  };
+
+  const handleEmailSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pendingEmailConfirmation) {
+      handleConfirmEmailLink();
+    } else {
+      handleSendEmailLink();
     }
   };
 
@@ -141,13 +163,37 @@ export default function AuthPage() {
             Continue with Google
           </button>
 
-          <button
-            onClick={handleComingSoon}
-            className={styles.authPageProviderBtn}
-          >
-            <EmailIcon />
-            Continue with Email Link
-          </button>
+          {!showEmailInput && !pendingEmailConfirmation ? (
+            <button
+              onClick={() => setShowEmailInput(true)}
+              className={styles.authPageProviderBtn}
+            >
+              <EmailIcon />
+              Continue with Email Link
+            </button>
+          ) : (
+            <form
+              className={styles.authPageEmailForm}
+              onSubmit={handleEmailSubmit}
+            >
+              <input
+                type="email"
+                placeholder={pendingEmailConfirmation ? 'Confirm your email' : 'Enter your email'}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={styles.authPageEmailInput}
+                autoFocus
+                required
+              />
+              <button
+                type="submit"
+                disabled={emailSending}
+                className={styles.authPageEmailSubmit}
+              >
+                {emailSending ? 'Signing in…' : pendingEmailConfirmation ? 'Confirm' : 'Send Link'}
+              </button>
+            </form>
+          )}
         </div>
 
         {/* Guest link */}

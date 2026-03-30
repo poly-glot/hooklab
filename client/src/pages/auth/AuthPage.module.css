@@ -201,6 +201,47 @@
   background: #fafafa;
 }
 
+.auth-page__email-form {
+  display: flex;
+  gap: 8px;
+}
+
+.auth-page__email-input {
+  flex: 1;
+  height: 50px;
+  padding: 0 16px;
+  border: 1px solid #b9b9b9;
+  border-radius: 8px;
+  font-size: 15px;
+  outline: none;
+}
+
+.auth-page__email-input:focus {
+  border-color: #01189b;
+}
+
+button.auth-page__email-submit {
+  height: 50px;
+  padding: 0 20px;
+  background-color: #01189b;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+button.auth-page__email-submit:hover {
+  background-color: #000d6b;
+}
+
+button.auth-page__email-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .auth-page__guest {
   margin-top: 24px;
   text-align: center;
