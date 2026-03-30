@@ -215,6 +215,10 @@ jobs:
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
 
+      - name: Deploy Firestore rules & indexes
+        run: |
+          firebase deploy --only firestore --force --project ${{ env.GCP_PROJECT_ID }}
+
       - name: Deploy client to Firebase Hosting (live)
         id: urls
         run: |

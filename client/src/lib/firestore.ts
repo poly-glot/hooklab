@@ -76,9 +76,12 @@ export async function createUserDocument(
   isAnonymous: boolean
 ): Promise<void> {
   const userRef = doc(usersCol, uid);
-  await setDoc(
-    userRef,
-    {
+  const snap = await getDoc(userRef);
+
+  if (snap.exists()) {
+    await updateDoc(userRef, { lastLoginAt: serverTimestamp() });
+  } else {
+    await setDoc(userRef, {
       email,
       isAnonymous,
       displayName: isAnonymous ? "Guest" : email.split("@")[0],
@@ -90,9 +93,8 @@ export async function createUserDocument(
         maxExecutionsPerDay: isAnonymous ? 100 : 10000,
         usedExecutionsToday: 0,
       },
-    },
-    { merge: true }
-  );
+    });
+  }
 }
 
 export async function getUserDocument(
