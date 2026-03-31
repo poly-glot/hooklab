@@ -9,6 +9,7 @@ import { Hono } from "hono";
 import {
   APP_DOMAIN,
   FROM_EMAIL,
+  PROJECT_ID,
   RATE_LIMIT_WINDOW,
   RESEND_API_KEY,
 } from "../config.ts";
@@ -94,6 +95,7 @@ emailAuth.post("/send-link", async (c) => {
           continueUrl,
           canHandleCodeInApp: true,
           returnOobLink: true,
+          targetProjectId: PROJECT_ID,
         }),
       },
     );
