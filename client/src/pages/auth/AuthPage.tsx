@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
@@ -38,12 +38,46 @@ function EmailIcon() {
   );
 }
 
+function getSubmitLabel(sending: boolean, cooldown: number, confirming: boolean): string {
+  if (sending) return 'Sending…';
+  if (cooldown > 0) return `Wait ${cooldown}s`;
+  if (confirming) return 'Confirm';
+  return 'Send Link';
+}
+
 export default function AuthPage() {
-  const { loginAsGuest, loginWithGoogle, sendEmailLink, confirmEmailLink, pendingEmailConfirmation } = useAuth();
+  const {
+    loginAsGuest,
+    loginWithGoogle,
+    sendEmailLink,
+    confirmEmailLink,
+    pendingEmailConfirmation,
+    emailLinkError,
+  } = useAuth();
   const navigate = useNavigate();
   const [showEmailInput, setShowEmailInput] = useState(false);
   const [email, setEmail] = useState('');
   const [emailSending, setEmailSending] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  const cooldownRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+
+  const startCooldown = useCallback((seconds: number) => {
+    setCooldown(seconds);
+    clearInterval(cooldownRef.current);
+    cooldownRef.current = setInterval(() => {
+      setCooldown((prev) => {
+        if (prev <= 1) {
+          clearInterval(cooldownRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, []);
+
+  useEffect(() => {
+    return () => clearInterval(cooldownRef.current);
+  }, []);
 
   const handleGuestLogin = async () => {
     try {
@@ -64,14 +98,16 @@ export default function AuthPage() {
   };
 
   const handleSendEmailLink = async () => {
-    if (!email || emailSending) return;
+    if (!email || emailSending || cooldown > 0) return;
     setEmailSending(true);
     try {
       await sendEmailLink(email);
-      toast.success('Sign-in link sent — check your inbox');
-      setShowEmailInput(false);
-      setEmail('');
-    } catch (e) {
+      startCooldown(60);
+    } catch (e: unknown) {
+      const retryAfter = (e as { retryAfter?: number }).retryAfter;
+      if (retryAfter) {
+        startCooldown(retryAfter);
+      }
       toast.error(e instanceof Error ? e.message : 'Failed to send sign-in link');
     } finally {
       setEmailSending(false);
@@ -172,27 +208,37 @@ export default function AuthPage() {
               Continue with Email Link
             </button>
           ) : (
-            <form
-              className={styles.authPageEmailForm}
-              onSubmit={handleEmailSubmit}
-            >
-              <input
-                type="email"
-                placeholder={pendingEmailConfirmation ? 'Confirm your email' : 'Enter your email'}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className={styles.authPageEmailInput}
-                autoFocus
-                required
-              />
-              <button
-                type="submit"
-                disabled={emailSending}
-                className={styles.authPageEmailSubmit}
+            <>
+              <form
+                className={styles.authPageEmailForm}
+                onSubmit={handleEmailSubmit}
               >
-                {emailSending ? 'Signing in…' : pendingEmailConfirmation ? 'Confirm' : 'Send Link'}
-              </button>
-            </form>
+                <input
+                  type="email"
+                  placeholder={pendingEmailConfirmation ? 'Confirm your email' : 'Enter your email'}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className={styles.authPageEmailInput}
+                  autoFocus
+                  required
+                />
+                <button
+                  type="submit"
+                  disabled={emailSending || cooldown > 0}
+                  className={styles.authPageEmailSubmit}
+                >
+                  {getSubmitLabel(emailSending, cooldown, pendingEmailConfirmation)}
+                </button>
+              </form>
+              {cooldown > 0 && !emailSending && (
+                <p className={styles.authPageEmailSent}>
+                  Link sent to <strong>{email}</strong> — check your inbox
+                </p>
+              )}
+              {emailLinkError && (
+                <p className={styles.authPageEmailError}>{emailLinkError}</p>
+              )}
+            </>
           )}
         </div>
 
