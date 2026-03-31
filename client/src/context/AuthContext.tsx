@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import {
   onAuthStateChanged,
   signInAnonymously,
@@ -9,7 +9,6 @@ import {
   signOut as firebaseSignOut,
   linkWithCredential,
   EmailAuthProvider,
-  sendSignInLinkToEmail,
   isSignInWithEmailLink,
   signInWithEmailLink,
   type User as FirebaseUser,
@@ -25,12 +24,17 @@ import type { User } from "@/lib/api";
 
 const EMAIL_LINK_KEY = "emailForSignIn";
 
+interface SendEmailLinkError extends Error {
+  retryAfter?: number;
+}
+
 interface AuthContextType {
   user: User | null;
   firebaseUser: FirebaseUser | null;
   isLoading: boolean;
   isAnonymous: boolean;
   pendingEmailConfirmation: boolean;
+  emailLinkError: string | null;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
@@ -53,17 +57,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
   const [pendingEmailConfirmation, setPendingEmailConfirmation] =
     useState(false);
+  const [emailLinkError, setEmailLinkError] = useState<string | null>(null);
 
-  const completeEmailLinkSignIn = (email: string) =>
-    signInWithEmailLink(auth, email, window.location.href)
-      .then(() => {
-        window.localStorage.removeItem(EMAIL_LINK_KEY);
-        window.history.replaceState({}, "", "/auth");
-      })
-      .finally(() => {
-        setEmailLinkPending(false);
-        setPendingEmailConfirmation(false);
-      });
+  const completeEmailLinkSignIn = useCallback(
+    (email: string) =>
+      signInWithEmailLink(auth, email, window.location.href)
+        .then(() => {
+          window.localStorage.removeItem(EMAIL_LINK_KEY);
+          window.history.replaceState({}, "", "/auth");
+        })
+        .finally(() => {
+          setEmailLinkPending(false);
+          setPendingEmailConfirmation(false);
+        }),
+    []
+  );
 
   // Complete email link sign-in if the user arrived via an email link
   useEffect(() => {
@@ -71,14 +79,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const email = window.localStorage.getItem(EMAIL_LINK_KEY);
     if (email) {
-      completeEmailLinkSignIn(email).catch((err) =>
-        console.error("Email link sign-in failed:", err)
-      );
+      completeEmailLinkSignIn(email).catch((err) => {
+        console.error("Email link sign-in failed:", err);
+        setEmailLinkError(
+          "Sign-in link expired or invalid. Please request a new one."
+        );
+      });
     } else {
       // Opened in a different browser — ask user to confirm email via UI
       setPendingEmailConfirmation(true);
     }
-  }, [emailLinkPending]);
+  }, [emailLinkPending, completeEmailLinkSignIn]);
 
   // Delay auth listener until any email link sign-in is resolved
   useEffect(() => {
@@ -132,12 +143,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const sendEmailLink = async (email: string) => {
-    const actionCodeSettings = {
-      url: window.location.origin + "/auth",
-      handleCodeInApp: true,
-    };
-    await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+    const res = await fetch("/api/email-auth/send-link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      const err: SendEmailLinkError = new Error(
+        data.error || "Failed to send sign-in link"
+      );
+      err.retryAfter = data.retryAfter;
+      throw err;
+    }
     window.localStorage.setItem(EMAIL_LINK_KEY, email);
+    setEmailLinkError(null);
   };
 
   const confirmEmailLink = async (email: string) => {
@@ -182,6 +202,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         sendEmailLink,
         confirmEmailLink,
         pendingEmailConfirmation,
+        emailLinkError,
         loginAsGuest,
         upgradeAccount,
         logout,

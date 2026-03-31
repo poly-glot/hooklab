@@ -242,6 +242,24 @@ button.auth-page__email-submit:disabled {
   cursor: not-allowed;
 }
 
+.auth-page__email-sent {
+  font-size: 13px;
+  color: #28c88e;
+  text-align: center;
+  margin-top: 8px;
+}
+
+.auth-page__email-sent strong {
+  font-weight: 600;
+}
+
+.auth-page__email-error {
+  font-size: 13px;
+  color: #d93025;
+  text-align: center;
+  margin-top: 8px;
+}
+
 .auth-page__guest {
   margin-top: 24px;
   text-align: center;

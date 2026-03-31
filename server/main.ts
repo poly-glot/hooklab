@@ -16,6 +16,7 @@ import {
   SECURITY_HEADERS,
 } from "./config.ts";
 import auth from "./routes/auth.ts";
+import emailAuth from "./routes/email-auth.ts";
 import endpoints from "./routes/endpoints.ts";
 import reports from "./routes/reports.ts";
 import internal from "./routes/internal.ts";
@@ -53,6 +54,7 @@ app.get("/api/health", (c) => {
 
 // API Routes
 app.route("/api/auth", auth);
+app.route("/api/email-auth", emailAuth);
 app.route("/api/endpoints", endpoints);
 app.route("/api/reports", reports);
 app.route("/api/internal", internal);

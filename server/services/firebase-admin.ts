@@ -46,7 +46,7 @@ let cachedToken: { token: string; expiresAt: number } | null = null;
  * In emulator mode, returns "owner" to bypass security rules.
  * In production, fetches from GCP metadata server and caches the token.
  */
-async function getAccessToken(): Promise<string> {
+export async function getAccessToken(): Promise<string> {
   if (FIRESTORE_EMULATOR_HOST) return "owner";
 
   if (cachedToken && cachedToken.expiresAt > Date.now() + TOKEN_CACHE_BUFFER) {

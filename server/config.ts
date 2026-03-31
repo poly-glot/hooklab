@@ -34,6 +34,15 @@ export const ALLOWED_ORIGINS = Deno.env.get("ALLOWED_ORIGINS")
 /** Cloud Run service name (indicates production environment) */
 export const K_SERVICE = Deno.env.get("K_SERVICE");
 
+/** Resend API key for sending transactional emails */
+export const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+
+/** Sender email address for transactional emails */
+export const FROM_EMAIL = Deno.env.get("FROM_EMAIL") || "noreply@junaid.guru";
+
+/** Application domain for sign-in continue URLs */
+export const APP_DOMAIN = Deno.env.get("APP_DOMAIN") || "hooklab.junaid.guru";
+
 // ── Size Limits ────────────────────────────────────────────────────
 
 /** Maximum endpoint name length (characters) */
