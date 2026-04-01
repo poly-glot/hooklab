@@ -5,7 +5,7 @@
  * filters by userId, includes LIMIT, and contains no forbidden operations.
  */
 
-import { BQ_DATASET, BQ_TABLE } from "../config.ts";
+import { BQ_DATASET, BQ_TABLE, REPORT_MAX_ROWS } from "../config.ts";
 import type { SQLValidationResult } from "../types.ts";
 
 const FULL_TABLE = `${BQ_DATASET}.${BQ_TABLE}`.toUpperCase();
@@ -15,12 +15,13 @@ const FORBIDDEN_KEYWORDS = [
   "MERGE", "TRUNCATE", "GRANT", "REVOKE", "CALL", "EXEC",
 ];
 
-export function validateGeneratedSQL(sql: string): SQLValidationResult {
-  const normalized = sql.toUpperCase().trim();
+export function validateGeneratedSQL(sql: string): SQLValidationResult & { sql: string } {
+  let fixedSql = sql.trim();
+  const normalized = fixedSql.toUpperCase();
 
   // Must be SELECT only
   if (!normalized.startsWith("SELECT")) {
-    return { valid: false, error: "Only SELECT queries are allowed" };
+    return { valid: false, error: "Only SELECT queries are allowed", sql: fixedSql };
   }
 
   // No DDL/DML
@@ -28,26 +29,26 @@ export function validateGeneratedSQL(sql: string): SQLValidationResult {
     // Match as whole word to avoid false positives (e.g., "UPDATED_AT")
     const pattern = new RegExp(`\\b${keyword}\\b`);
     if (pattern.test(normalized)) {
-      return { valid: false, error: `Forbidden operation: ${keyword}` };
+      return { valid: false, error: `Forbidden operation: ${keyword}`, sql: fixedSql };
     }
   }
 
   // Must reference only our table
   if (!normalized.includes(FULL_TABLE)) {
-    return { valid: false, error: `Query must target ${BQ_DATASET}.${BQ_TABLE}` };
+    return { valid: false, error: `Query must target ${BQ_DATASET}.${BQ_TABLE}`, sql: fixedSql };
   }
 
   // Must filter by user_id (parameterized)
-  if (!sql.includes("@userId")) {
-    return { valid: false, error: "Query must filter by @userId" };
+  if (!fixedSql.includes("@userId")) {
+    return { valid: false, error: "Query must filter by @userId", sql: fixedSql };
   }
 
-  // Must have LIMIT
+  // Auto-append LIMIT if missing
   if (!normalized.includes("LIMIT")) {
-    return { valid: false, error: "Query must include LIMIT clause" };
+    fixedSql = `${fixedSql} LIMIT ${REPORT_MAX_ROWS}`;
   }
 
-  return { valid: true };
+  return { valid: true, sql: fixedSql };
 }
 
 /**
