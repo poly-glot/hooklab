@@ -234,13 +234,15 @@ async function executeLocalFallback(
 
 // ── Parameter builder ──────────────────────────────────────────────
 
+const TIMESTAMP_PARAMS = new Set(["startTime", "endTime"]);
+
 function buildQueryParams(
   params: Record<string, string>,
   // deno-lint-ignore no-explicit-any
 ): any[] {
   return Object.entries(params).map(([name, value]) => ({
     name,
-    parameterType: { type: "STRING" },
+    parameterType: { type: TIMESTAMP_PARAMS.has(name) ? "TIMESTAMP" : "STRING" },
     parameterValue: { value },
   }));
 }

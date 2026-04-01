@@ -133,8 +133,15 @@ reports.post("/query", async (c) => {
     }
     geminiResult.sql = validation.sql;
 
+    // Inject time window params — Gemini's SQL uses @startTime/@endTime but returns empty params
+    const queryParams = {
+      ...geminiResult.params,
+      startTime: timeWindow.start,
+      endTime: timeWindow.end,
+    };
+
     // 3. Dry run to estimate cost
-    const dryRun = await dryRunQuery(geminiResult.sql, geminiResult.params, userId);
+    const dryRun = await dryRunQuery(geminiResult.sql, queryParams, userId);
 
     // 4. Check per-query byte limit
     if (dryRun.totalBytesProcessed > REPORT_MAX_BYTES_PER_QUERY) {
@@ -151,7 +158,7 @@ reports.post("/query", async (c) => {
     }
 
     // 6. Execute query
-    const queryResult = await executeQuery(geminiResult.sql, geminiResult.params, userId);
+    const queryResult = await executeQuery(geminiResult.sql, queryParams, userId);
 
     // 7. Record usage
     await recordQueryUsage(userId, queryResult.totalBytesProcessed);
