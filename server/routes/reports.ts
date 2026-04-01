@@ -54,6 +54,24 @@ function computeTimeWindow(duration: ReportDuration): { start: string; end: stri
   };
 }
 
+// ── Error sanitization ────────────────────────────────────────────
+
+/** Extract first line of error and strip secrets/tokens/internal paths. */
+function sanitizeErrorForClient(message: string): string {
+  const firstLine = message.split("\n")[0];
+  return firstLine
+    .replace(/re_[A-Za-z0-9_-]+/g, "***")                                // Resend keys
+    .replace(/AIzaSy[A-Za-z0-9_-]+/g, "***")                             // Firebase API keys
+    .replace(/ya29\.[A-Za-z0-9_.-]+/g, "***")                            // GCP access tokens
+    .replace(/Bearer [^\s]+/g, "Bearer ***")                              // Auth headers
+    .replace(/[?&]key=[^\s&]+/g, "?key=***")                             // URL API keys
+    .replace(/projects\/[A-Za-z0-9_-]+/g, "projects/***")                // Project IDs
+    .replace(/file:\/\/[^\s]+/g, "***")                                   // File paths
+    .replace(/\b[\w.-]+@[\w.-]+\.iam\.gserviceaccount\.com\b/g, "***")   // SA emails
+    .replace(/metadata\.google\.internal[^\s]*/g, "***")                  // Metadata server
+    .slice(0, 500);
+}
+
 // ── POST /query — Execute a natural language report ────────────────
 
 reports.post("/query", async (c) => {
@@ -97,7 +115,14 @@ reports.post("/query", async (c) => {
       timeWindow.end,
     );
 
-    // 2. Validate generated SQL
+    // 2. Handle "can't answer" refusals from Gemini
+    if (!geminiResult.sql || geminiResult.sql.trim() === "") {
+      return c.json({
+        error: geminiResult.explanation || "This question can't be answered with the available data.",
+      }, 422);
+    }
+
+    // 3. Validate generated SQL (may auto-fix missing LIMIT)
     const validation = validateGeneratedSQL(geminiResult.sql);
     if (!validation.valid) {
       console.error("[Reports] SQL validation failed:", validation.error, geminiResult.sql);
@@ -106,6 +131,7 @@ reports.post("/query", async (c) => {
         detail: validation.error,
       }, 422);
     }
+    geminiResult.sql = validation.sql;
 
     // 3. Dry run to estimate cost
     const dryRun = await dryRunQuery(geminiResult.sql, geminiResult.params, userId);
@@ -210,7 +236,16 @@ reports.post("/query", async (c) => {
     return c.json(response);
   } catch (err) {
     console.error("[Reports] Query error:", err);
-    return c.json({ error: "Failed to process report query" }, 500);
+    const message = err instanceof Error ? err.message : String(err);
+    const detail = sanitizeErrorForClient(message);
+
+    if (message.includes("Gemini")) {
+      return c.json({ error: "AI failed to generate a query. Try rephrasing your question.", detail }, 502);
+    }
+    if (message.includes("BigQuery")) {
+      return c.json({ error: "Query execution failed. Try a simpler question or shorter time window.", detail }, 502);
+    }
+    return c.json({ error: "Something went wrong. Please try again.", detail }, 500);
   }
 });
 
