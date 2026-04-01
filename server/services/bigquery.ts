@@ -245,6 +245,57 @@ function buildQueryParams(
   }));
 }
 
+// ── Streaming insert ──────────────────────────────────────────────
+
+interface ExecutionRow {
+  id: string;
+  endpoint_id: string;
+  user_id: string;
+  method: string;
+  url: string;
+  status: string;
+  response_status: number;
+  duration_ms: number;
+  ip: string;
+  execution_timestamp: string;
+  request_body: string;
+  response_body: string;
+  request_headers: string;
+  query_params: string;
+}
+
+/**
+ * Streams a webhook execution row into BigQuery.
+ * Fire-and-forget — errors are logged but never block the webhook response.
+ */
+export async function streamExecutionToBigQuery(row: ExecutionRow): Promise<void> {
+  if (FIRESTORE_EMULATOR_HOST) return; // Skip in local dev
+
+  const token = await getAccessToken();
+  const url = `https://bigquery.googleapis.com/bigquery/v2/projects/${PROJECT_ID}/datasets/${BQ_DATASET}/tables/${BQ_TABLE}/insertAll`;
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      rows: [{ insertId: row.id, json: row }],
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`BigQuery streaming insert failed: ${err}`);
+  }
+
+  const result = await res.json();
+  if (result.insertErrors?.length) {
+    console.error("[BigQuery] Insert errors:", JSON.stringify(result.insertErrors));
+  }
+}
+
 /** Returns the fully qualified BigQuery table name */
 export function getFullTableName(): string {
   return `${BQ_DATASET}.${BQ_TABLE}`;

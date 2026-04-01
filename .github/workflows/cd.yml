@@ -205,6 +205,13 @@ jobs:
             --platform managed \
             --quiet
 
+      - name: Route 100% traffic to latest revision
+        run: |
+          gcloud run services update-traffic ${{ env.CLOUD_RUN_SERVICE }} \
+            --region ${{ env.GCP_REGION }} \
+            --to-latest \
+            --quiet
+
       # ── Deploy Firebase Hosting (client) to live ──
       - name: Download client artifact
         uses: actions/download-artifact@v4
