@@ -15,6 +15,7 @@ import {
   getEndpoint,
   writeExecution,
 } from "../services/firebase-admin.ts";
+import { streamExecutionToBigQuery } from "../services/bigquery.ts";
 import { runScript } from "../services/script-runner.ts";
 import type { RateLimitEntry } from "../types.ts";
 
@@ -114,6 +115,9 @@ webhooks.all("/:endpointId", async (c) => {
 
   const duration = Date.now() - startTime;
 
+  const executionId = crypto.randomUUID();
+  const timestamp = new Date().toISOString();
+
   // Write execution to Firestore (fire-and-forget)
   writeExecution({
     endpointId,
@@ -129,6 +133,26 @@ webhooks.all("/:endpointId", async (c) => {
     duration,
   }).catch((err) => {
     console.error("[Webhook] Failed to write execution:", err);
+  });
+
+  // Stream to BigQuery for reporting (fire-and-forget)
+  streamExecutionToBigQuery({
+    id: executionId,
+    endpoint_id: endpointId,
+    user_id: endpoint.userId,
+    method,
+    url,
+    status: responseStatus >= 200 && responseStatus < 400 ? "success" : "error",
+    response_status: responseStatus,
+    duration_ms: duration,
+    ip,
+    execution_timestamp: timestamp,
+    request_body: body,
+    response_body: responseBody,
+    request_headers: JSON.stringify(headers),
+    query_params: JSON.stringify(query),
+  }).catch((err) => {
+    console.error("[Webhook] Failed to stream to BigQuery:", err);
   });
 
   return new Response(
