@@ -13,6 +13,7 @@ import {
   batchWrite,
   getUser,
   getDocument,
+  updateDocument,
 } from "../services/firebase-admin.ts";
 import { fsNow } from "../utils/firestore-values.ts";
 import { DEFAULT_SCRIPT } from "../config.ts";
@@ -107,19 +108,15 @@ auth.post("/seed", authMiddleware, async (c) => {
     }
   }
 
-  // Mark user as seeded
-  writes.push({
-    collection: "users",
-    docId: userId,
-    data: {
-      seeded: true,
-      endpointCount: sampleEndpoints.length,
-      ...(userDoc || {}),
-      id: undefined, // strip the id field from getDocument
-    },
-  });
-
   await batchWrite(writes);
+
+  // Mark user as seeded — use a partial update so we don't overwrite
+  // existing fields (createdAt, quotas, etc.) or add stray fields that
+  // would break the Firestore users rules' onlyAllowedFields() check.
+  await updateDocument("users", userId, {
+    seeded: true,
+    endpointCount: sampleEndpoints.length,
+  });
 
   return c.json({ success: true, message: "Demo data created" });
 });
