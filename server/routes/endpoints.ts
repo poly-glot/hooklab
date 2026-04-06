@@ -31,6 +31,8 @@ import {
   validateCreateEndpoint,
   validateUpdateEndpoint,
 } from "../utils/validators.ts";
+import { checkEndpointQuota } from "../utils/quota.ts";
+import { isExecutionOwned } from "../utils/ownership.ts";
 
 const endpoints = new Hono<{ Variables: ContextVariables }>();
 
@@ -87,14 +89,15 @@ endpoints.post("/", async (c) => {
   // Server-side quota enforcement (Firestore rules only apply to client SDK,
   // not Admin SDK writes — so we must check here too)
   const userDoc = await getDocument("users", userId);
-  const endpointCount = (userDoc?.endpointCount as number) ?? 0;
-  const maxEndpoints = isAnonymous
-    ? (userDoc?.quotas?.maxEndpoints as number ?? 10)
-    : (userDoc?.quotas?.maxEndpoints as number ?? 50);
+  const quota = checkEndpointQuota(
+    userDoc?.endpointCount as number | undefined,
+    userDoc?.quotas?.maxEndpoints as number | undefined,
+    isAnonymous,
+  );
 
-  if (endpointCount >= maxEndpoints) {
+  if (!quota.allowed) {
     return c.json({
-      error: `Endpoint limit reached (${maxEndpoints}). ${isAnonymous ? "Sign up for a higher quota." : "Contact support to increase your limit."}`,
+      error: `Endpoint limit reached (${quota.maxEndpoints}). ${isAnonymous ? "Sign up for a higher quota." : "Contact support to increase your limit."}`,
     }, 429);
   }
 
@@ -178,11 +181,7 @@ endpoints.delete("/:id/requests/:requestId", async (c) => {
   // to prevent IDOR — without this, any authenticated user could
   // delete any execution log by ID.
   const execution = await getDocument("executions", requestId);
-  if (
-    !execution ||
-    execution.endpointId !== endpoint.id ||
-    execution.userId !== userId
-  ) {
+  if (!isExecutionOwned(execution, endpoint.id, userId)) {
     return c.json({ error: "Execution not found" }, 404);
   }
 

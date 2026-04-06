@@ -1,18 +1,9 @@
 /**
- * Tests for CSV cell encoding — proving newlines are quoted.
+ * Tests for CSV cell encoding — imports the real encodeCsvCell function.
  */
 
 import { assertEquals } from "@std/assert";
-
-/**
- * Mirrors the CSV cell encoding logic from reports.ts.
- */
-function encodeCsvCell(val: unknown): string {
-  const str = val === null || val === undefined ? "" : String(val);
-  return str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")
-    ? `"${str.replace(/"/g, '""')}"`
-    : str;
-}
+import { encodeCsvCell } from "../../utils/csv.ts";
 
 Deno.test("plain string passes through unquoted", () => {
   assertEquals(encodeCsvCell("hello"), "hello");

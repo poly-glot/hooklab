@@ -214,7 +214,7 @@ export async function createDocument(
  *
  * Plain keys (no dots) are handled normally via objectToFields.
  */
-function buildNestedFields(
+export function buildNestedFields(
   // deno-lint-ignore no-explicit-any
   data: Record<string, any>,
   // deno-lint-ignore no-explicit-any

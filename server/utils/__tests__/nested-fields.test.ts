@@ -1,37 +1,11 @@
 /**
  * Tests for dot-path field building used by updateDocument.
  *
- * Proves that dot-path keys produce correct nested Firestore structures
- * without clobbering sibling fields.
+ * Imports the real buildNestedFields from firebase-admin.ts.
  */
 
 import { assertEquals } from "@std/assert";
-import { toFirestoreValue } from "../firestore-values.ts";
-
-/**
- * Mirror of buildNestedFields from firebase-admin.ts — extracted here
- * for pure unit testing without importing the full admin module.
- */
-// deno-lint-ignore no-explicit-any
-function buildNestedFields(data: Record<string, any>): Record<string, any> {
-  // deno-lint-ignore no-explicit-any
-  const result: Record<string, any> = {};
-
-  for (const [key, value] of Object.entries(data)) {
-    const parts = key.split(".");
-    if (parts.length === 1) {
-      result[key] = toFirestoreValue(value);
-    } else {
-      let current = toFirestoreValue(value);
-      for (let i = parts.length - 1; i >= 1; i--) {
-        current = { mapValue: { fields: { [parts[i]]: current } } };
-      }
-      result[parts[0]] = current;
-    }
-  }
-
-  return result;
-}
+import { buildNestedFields } from "../../services/firebase-admin.ts";
 
 // ── Tests ─────────────────────────────────────────────────────────────
 
@@ -93,21 +67,16 @@ Deno.test("updateMask field paths preserve dot notation", () => {
   const data = { "quotas.usedExecutionsToday": 0, seeded: true };
   const fieldPaths = Object.keys(data)
     .map((k) => `updateMask.fieldPaths=${encodeURIComponent(k)}`);
-  // The dot-path should be passed as-is to Firestore (URL-encoded)
   assertEquals(fieldPaths.includes("updateMask.fieldPaths=quotas.usedExecutionsToday"), true);
   assertEquals(fieldPaths.includes("updateMask.fieldPaths=seeded"), true);
 });
 
 Deno.test("original clobber scenario: plain 'quotas' key replaces entire map", () => {
-  // This test documents the OLD broken behavior to show why dot-path is needed.
-  // If you pass { quotas: { usedExecutionsToday: 0 } } as a plain key,
-  // objectToFields wraps it as a full mapValue and updateMask=quotas
-  // replaces the ENTIRE quotas object — losing maxEndpoints etc.
+  // Documents the OLD broken behavior to show why dot-path is needed.
   const data = { quotas: { usedExecutionsToday: 0 } };
-  const fieldPaths = Object.keys(data); // ["quotas"]
+  const fieldPaths = Object.keys(data);
   assertEquals(fieldPaths, ["quotas"], "plain key = full replace");
 
-  // The fix: use dot-path instead
   const fixedData = { "quotas.usedExecutionsToday": 0 };
   const fixedPaths = Object.keys(fixedData);
   assertEquals(fixedPaths, ["quotas.usedExecutionsToday"], "dot-path = targeted update");
