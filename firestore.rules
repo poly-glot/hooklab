@@ -61,15 +61,19 @@ service cloud.firestore {
       allow update: if isOwner(userId) &&
                        onlyAllowedFields([
                          'email', 'isAnonymous', 'displayName',
-                         'lastLoginAt', 'endpointCount', 'quotas', 'seeded'
+                         'createdAt', 'lastLoginAt', 'endpointCount',
+                         'quotas', 'seeded'
                        ]) &&
                        // createdAt is immutable
                        !request.resource.data.diff(resource.data)
                          .affectedKeys().hasAny(['createdAt']) &&
                        // Cannot self-promote: quotas.maxEndpoints and
-                       // quotas.maxExecutionsPerDay are server-managed
+                       // quotas.maxExecutionsPerDay are server-managed.
+                       // Allow setting quotas on a doc that doesn't have them yet
+                       // (race: seed created doc before client set profile fields).
                        (
                          !('quotas' in request.resource.data) ||
+                         !('quotas' in resource.data) ||
                          (
                            request.resource.data.quotas.maxEndpoints ==
                              resource.data.quotas.maxEndpoints &&

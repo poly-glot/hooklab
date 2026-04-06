@@ -32,11 +32,7 @@ test.describe('Guest Endpoint Quota', () => {
     await expect(dashboardPage.endpointCards).toHaveCount(10, { timeout: 10000 });
   });
 
-  // BUG: Client creates via addDoc (Firestore SDK) but endpointCount is only
-  // incremented by the server API route. The Firestore rule checking
-  // endpointCount < 10 always sees 6 (from seed), so the UI path never
-  // triggers quota enforcement. This test documents the gap.
-  test.fixme('guest is blocked at endpoint limit with error', async ({
+  test('guest is blocked at endpoint limit with error', async ({
     page,
     dashboardPage,
   }) => {
@@ -68,8 +64,7 @@ test.describe('Guest Endpoint Quota', () => {
     await expect(dashboardPage.endpointCards).toHaveCount(10, { timeout: 5000 });
   });
 
-  // Depends on quota enforcement working (see fixme above)
-  test.fixme('deleting an endpoint frees quota for new creation', async ({
+  test('deleting an endpoint frees quota for new creation', async ({
     page,
     dashboardPage,
   }) => {

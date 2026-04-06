@@ -11,6 +11,9 @@ const mockCreateUserWithEmailAndPassword = vi.fn();
 const mockSignOut = vi.fn();
 const mockLinkWithCredential = vi.fn();
 
+const mockIsSignInWithEmailLink = vi.fn(() => false);
+const mockSignInWithEmailLink = vi.fn();
+
 vi.mock("firebase/auth", () => ({
   onAuthStateChanged: (...args: unknown[]) => mockOnAuthStateChanged(...args),
   signInAnonymously: (...args: unknown[]) => mockSignInAnonymously(...args),
@@ -21,6 +24,8 @@ vi.mock("firebase/auth", () => ({
     mockCreateUserWithEmailAndPassword(...args),
   signOut: (...args: unknown[]) => mockSignOut(...args),
   linkWithCredential: (...args: unknown[]) => mockLinkWithCredential(...args),
+  isSignInWithEmailLink: (...args: unknown[]) => mockIsSignInWithEmailLink(...args),
+  signInWithEmailLink: (...args: unknown[]) => mockSignInWithEmailLink(...args),
   GoogleAuthProvider: vi.fn(),
   EmailAuthProvider: {
     credential: vi.fn(() => ({ providerId: "password" })),
@@ -284,5 +289,41 @@ describe("AuthContext", () => {
     }).toThrow("useAuth must be used within an AuthProvider");
 
     spy.mockRestore();
+  });
+
+  describe("Email link sign-in (different browser)", () => {
+    it("sets pendingEmailConfirmation and resolves loading when no localStorage email", async () => {
+      // Simulate arriving via an email sign-in link (different browser, no localStorage)
+      mockIsSignInWithEmailLink.mockReturnValue(true);
+      window.localStorage.removeItem("emailForSignIn");
+
+      let authCallback: (user: unknown) => void = () => {};
+      mockOnAuthStateChanged.mockImplementation((_auth: unknown, cb: (user: unknown) => void) => {
+        authCallback = cb;
+        return vi.fn(); // unsubscribe
+      });
+
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <AuthProvider>{children}</AuthProvider>
+      );
+
+      const { result } = renderHook(() => useAuth(), { wrapper });
+
+      // The auth listener should now run (emailLinkPending cleared)
+      // and fire with null user (not signed in yet)
+      await act(async () => {
+        authCallback(null);
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      }, { timeout: 3000 });
+
+      // pendingEmailConfirmation should be true
+      expect(result.current.pendingEmailConfirmation).toBe(true);
+
+      // Clean up
+      mockIsSignInWithEmailLink.mockReturnValue(false);
+    });
   });
 });

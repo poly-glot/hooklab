@@ -13,6 +13,7 @@ import {
   limit,
   onSnapshot,
   serverTimestamp,
+  increment,
   Timestamp,
   type DocumentData,
   type QuerySnapshot,
@@ -79,23 +80,42 @@ export async function createUserDocument(
   const userRef = doc(usersCol, uid);
   const snap = await getDoc(userRef);
 
-  if (snap.exists()) {
-    await updateDoc(userRef, { lastLoginAt: serverTimestamp() });
-  } else {
-    await setDoc(userRef, {
-      email,
-      isAnonymous,
-      displayName: isAnonymous ? "Guest" : email.split("@")[0],
-      createdAt: serverTimestamp(),
-      lastLoginAt: serverTimestamp(),
-      endpointCount: 0,
-      quotas: {
-        maxEndpoints: isAnonymous ? 10 : 50,
-        maxExecutionsPerDay: isAnonymous ? 100 : 10000,
-        usedExecutionsToday: 0,
-      },
-    });
+  // Essential profile fields — always set via merge so they exist even
+  // if the server seed created the doc first with only seeded+endpointCount.
+  const profileData: Record<string, unknown> = {
+    email,
+    isAnonymous,
+    displayName: isAnonymous ? "Guest" : email.split("@")[0],
+    lastLoginAt: serverTimestamp(),
+  };
+
+  const existingData = snap.exists() ? snap.data() : null;
+
+  if (!existingData) {
+    // Brand-new user — set all fields including createdAt, endpointCount, quotas
+    profileData.createdAt = serverTimestamp();
+    profileData.endpointCount = 0;
+    profileData.quotas = {
+      maxEndpoints: isAnonymous ? 10 : 50,
+      maxExecutionsPerDay: isAnonymous ? 100 : 10000,
+      usedExecutionsToday: 0,
+    };
+  } else if (!existingData.quotas) {
+    // Doc exists (e.g. seed ran first) but missing quotas — backfill.
+    // This is safe because the Firestore update rule allows setting quotas
+    // when the existing doc has no quotas field.
+    profileData.quotas = {
+      maxEndpoints: isAnonymous ? 10 : 50,
+      maxExecutionsPerDay: isAnonymous ? 100 : 10000,
+      usedExecutionsToday: 0,
+    };
   }
+  // If quotas already exists, we don't touch it — Firestore rules prevent
+  // clients from changing maxEndpoints/maxExecutionsPerDay.
+
+  // merge: true preserves fields set by the seed (seeded, endpointCount,
+  // createdAt) while backfilling any missing profile fields.
+  await setDoc(userRef, profileData, { merge: true });
 }
 
 /**
@@ -194,6 +214,12 @@ return {
     updatedAt: serverTimestamp(),
   });
 
+  // Increment endpointCount so Firestore rules can enforce guest quota
+  const userRef = doc(usersCol, userId);
+  await updateDoc(userRef, { endpointCount: increment(1) }).catch(() => {
+    // Non-critical — quota enforcement is best-effort client-side
+  });
+
   const snap = await getDoc(docRef);
   return docToEndpoint(snap.id, snap.data() ?? {});
 }
@@ -217,10 +243,20 @@ export async function updateEndpoint(
 }
 
 export async function deleteEndpoint(
-  endpointId: string
+  endpointId: string,
+  userId?: string
 ): Promise<void> {
   const ref = doc(endpointsCol, endpointId);
   await deleteDoc(ref);
+
+  // Decrement endpointCount to free quota
+  const uid = userId || auth.currentUser?.uid;
+  if (uid) {
+    const userRef = doc(usersCol, uid);
+    await updateDoc(userRef, { endpointCount: increment(-1) }).catch(() => {
+      // Non-critical — quota enforcement is best-effort client-side
+    });
+  }
 }
 
 // ── Execution / request log operations ────────────────────────────

@@ -49,9 +49,9 @@ export function useEndpoints(userId: string | undefined) {
   );
 
   const deleteEndpoint = useCallback(async (endpointId: string) => {
-    await deleteEndpointFn(endpointId);
+    await deleteEndpointFn(endpointId, userId);
     setEndpoints((prev) => prev.filter((e) => e.id !== endpointId));
-  }, []);
+  }, [userId]);
 
   const toggleActive = useCallback(
     async (endpointId: string) => {

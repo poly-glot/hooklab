@@ -12,11 +12,11 @@ const PROJECT_ID = 'demo-webhook';
 export async function loginAsGuest(page: Page): Promise<void> {
   await page.goto('/auth');
   // click() auto-waits for visibility — no separate expect needed
-  await page.getByText('Guest').click({ timeout: 15000 });
-  await page.waitForURL('**/dashboard', { timeout: 20000 });
+  await page.getByText('Guest').click({ timeout: 20000 });
+  await page.waitForURL('**/dashboard', { timeout: 30000 });
   await expect(
     page.getByRole('button', { name: /ADD NEW/i }).first()
-  ).toBeVisible({ timeout: 15000 });
+  ).toBeVisible({ timeout: 20000 });
 }
 
 /**

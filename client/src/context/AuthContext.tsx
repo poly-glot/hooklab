@@ -87,7 +87,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         );
       });
     } else {
-      // Opened in a different browser — ask user to confirm email via UI
+      // Opened in a different browser — ask user to confirm email via UI.
+      // Must clear emailLinkPending so the auth state listener can run
+      // and isLoading becomes false (otherwise the app stays on "Loading...").
+      setEmailLinkPending(false);
       setPendingEmailConfirmation(true);
     }
   }, [emailLinkPending, completeEmailLinkSignIn]);
