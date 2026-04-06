@@ -63,6 +63,45 @@ Deno.test("mix of plain and dot-path keys", () => {
   });
 });
 
+Deno.test("two dot-paths sharing a root deep-merge instead of clobber", () => {
+  const result = buildNestedFields({
+    "quotas.maxEndpoints": 50,
+    "quotas.usedExecutionsToday": 0,
+  });
+  // Both nested keys must survive — the old code would lose maxEndpoints
+  assertEquals(result.quotas, {
+    mapValue: {
+      fields: {
+        maxEndpoints: { integerValue: "50" },
+        usedExecutionsToday: { integerValue: "0" },
+      },
+    },
+  });
+});
+
+Deno.test("three dot-paths sharing two levels deep-merge correctly", () => {
+  const result = buildNestedFields({
+    "a.b.x": 1,
+    "a.b.y": 2,
+    "a.c": 3,
+  });
+  assertEquals(result.a, {
+    mapValue: {
+      fields: {
+        b: {
+          mapValue: {
+            fields: {
+              x: { integerValue: "1" },
+              y: { integerValue: "2" },
+            },
+          },
+        },
+        c: { integerValue: "3" },
+      },
+    },
+  });
+});
+
 Deno.test("updateMask field paths preserve dot notation", () => {
   const data = { "quotas.usedExecutionsToday": 0, seeded: true };
   const fieldPaths = Object.keys(data)

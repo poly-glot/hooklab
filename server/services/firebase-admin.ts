@@ -227,12 +227,22 @@ export function buildNestedFields(
     if (parts.length === 1) {
       result[key] = toFirestoreValue(value);
     } else {
-      // Build nested mapValue structure from inside out
-      let current = toFirestoreValue(value);
-      for (let i = parts.length - 1; i >= 1; i--) {
-        current = { mapValue: { fields: { [parts[i]]: current } } };
+      // Deep-merge into existing mapValue so two dot-paths sharing a
+      // root (e.g. "quotas.a" and "quotas.b") don't clobber each other.
+      // deno-lint-ignore no-explicit-any
+      let container = result as Record<string, any>;
+      for (let i = 0; i < parts.length - 1; i++) {
+        const existing = container[parts[i]];
+        if (existing?.mapValue?.fields) {
+          container = existing.mapValue.fields;
+        } else {
+          // deno-lint-ignore no-explicit-any
+          const nested: Record<string, any> = {};
+          container[parts[i]] = { mapValue: { fields: nested } };
+          container = nested;
+        }
       }
-      result[parts[0]] = current;
+      container[parts[parts.length - 1]] = toFirestoreValue(value);
     }
   }
 
