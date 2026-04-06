@@ -71,9 +71,17 @@ webhooks.all("/:endpointId", async (c) => {
   const headers = Object.fromEntries(c.req.raw.headers);
   const query = Object.fromEntries(new URL(url).searchParams);
 
+  // Check Content-Length before reading body to prevent buffering multi-GB
+  // requests into memory. Attackers could OOM the server without this.
+  const contentLength = parseInt(c.req.header("content-length") || "0", 10);
+  if (contentLength > MAX_WEBHOOK_BODY_SIZE) {
+    return c.json({ error: "Request body too large" }, 413);
+  }
+
   let body = "";
   try {
     body = await c.req.text();
+    // Still check actual length — Content-Length can be spoofed low
     if (body.length > MAX_WEBHOOK_BODY_SIZE) {
       return c.json({ error: "Request body too large" }, 413);
     }
