@@ -137,8 +137,10 @@ export async function waitForRequests(page: Page, count: number): Promise<void> 
  * Clear all Firestore emulator data.
  */
 export async function clearFirestoreData(): Promise<void> {
+  // Use the named "hooklab" database — matches firebase-init.ts and firebase.json.
+  // Using "(default)" would silently clear nothing since the app writes to "hooklab".
   await fetch(
-    `http://${FIRESTORE_EMULATOR}/emulator/v1/projects/${PROJECT_ID}/databases/(default)/documents`,
+    `http://${FIRESTORE_EMULATOR}/emulator/v1/projects/${PROJECT_ID}/databases/hooklab/documents`,
     { method: 'DELETE' }
   ).catch(() => {});
 }

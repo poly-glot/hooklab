@@ -45,6 +45,13 @@ alias dev-server='cd /workspace/server && deno task dev'
 alias fb-emulators='firebase emulators:start'
 alias install-all='npm install && cd client && npm install && cd ..'
 
+# Playwright
+alias pw='cd /workspace/client && npx playwright'
+alias pw-test='cd /workspace/client && npx playwright test'
+alias pw-ui='cd /workspace/client && npx playwright test --ui'
+alias pw-report='cd /workspace/client && npx playwright show-report'
+alias pw-codegen='cd /workspace/client && npx playwright codegen'
+
 # Docker
 alias dc='docker compose'
 alias dcup='docker compose up -d'

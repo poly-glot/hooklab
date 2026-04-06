@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const BASE_URL = process.env.BASE_URL || 'http://localhost:5174';
+// Must match vite.config.ts server.port (5173)
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
 
 /**
  * All E2E tests run against real Firebase emulators + Deno API server.
@@ -8,7 +9,7 @@ const BASE_URL = process.env.BASE_URL || 'http://localhost:5174';
  * Prerequisites (must be running before tests):
  *   - Firebase emulators: Auth (9099), Firestore (8080)
  *   - Deno API server: port 3000
- *   - Vite dev server: port 5174 (auto-started by webServer config below)
+ *   - Vite dev server: port 5173 (auto-started by webServer config below)
  */
 export default defineConfig({
   testDir: './e2e',
@@ -44,7 +45,7 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: 'npx vite --host --mode development',
+      command: 'npx vite --host --port 5173 --mode development',
       url: BASE_URL,
       reuseExistingServer: true,
       timeout: 60000,

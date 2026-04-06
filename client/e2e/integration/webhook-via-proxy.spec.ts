@@ -7,7 +7,7 @@ import {
   healthCheck,
 } from '../helpers/api-client';
 
-const VITE_BASE = process.env.BASE_URL || 'http://localhost:5174';
+const VITE_BASE = process.env.BASE_URL || 'http://localhost:5173';
 
 let token: string;
 
