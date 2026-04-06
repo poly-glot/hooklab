@@ -180,11 +180,15 @@ export async function createDocument(
   const fields = objectToFields(data);
 
   if (docId) {
-    await fetch(docUrl(collection, docId), {
+    const res = await fetch(docUrl(collection, docId), {
       method: "PATCH",
       headers,
       body: JSON.stringify({ fields }),
     });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`[FirebaseAdmin] createDocument ${collection}/${docId} failed: ${res.status} ${err}`);
+    }
     return docId;
   }
 
@@ -193,6 +197,10 @@ export async function createDocument(
     headers,
     body: JSON.stringify({ fields }),
   });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`[FirebaseAdmin] createDocument ${collection} failed: ${res.status} ${err}`);
+  }
   const result = await res.json();
   const name: string = result.name || "";
   return name.split("/").pop() || "";
@@ -269,7 +277,11 @@ export async function deleteDocument(
   docId: string,
 ): Promise<void> {
   const headers = await authHeaders();
-  await fetch(docUrl(collection, docId), { method: "DELETE", headers });
+  const res = await fetch(docUrl(collection, docId), { method: "DELETE", headers });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`[FirebaseAdmin] deleteDocument ${collection}/${docId} failed: ${res.status} ${err}`);
+  }
 }
 
 /**
