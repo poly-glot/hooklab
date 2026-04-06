@@ -66,10 +66,11 @@ export function WebhookCard({
       onClick={onClick}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick?.(); }}
       className={styles.webhookCard}
+      data-testid="endpoint-card"
     >
       {/* Status dot */}
       {hasStatusDot && (
-        <span className={styles.webhookCardDot} />
+        <span className={styles.webhookCardDot} data-testid="status-dot" />
       )}
 
       {/* Name + URL */}

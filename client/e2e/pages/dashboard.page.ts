@@ -67,7 +67,7 @@ export class DashboardPage {
 
     // Endpoint list area
     this.endpointList = page.locator('main');
-    this.endpointCards = page.locator('.webhook-card');
+    this.endpointCards = page.locator('[data-testid="endpoint-card"]');
     this.emptyStateText = page.getByText(/No endpoints/);
     this.emptyStateAddButton = page.locator('main').getByRole('button', { name: 'ADD NEW' });
     this.loadingText = page.getByText('Loading endpoints...');
@@ -160,13 +160,13 @@ export class DashboardPage {
 
   async clickEndpointCard(name: string) {
     await this.page
-      .locator('.webhook-card', { hasText: name })
+      .locator('[data-testid="endpoint-card"]', { hasText: name })
       .first()
       .click();
   }
 
   async openEndpointOptions(name: string) {
-    const card = this.page.locator('.webhook-card', { hasText: name }).first();
+    const card = this.page.locator('[data-testid="endpoint-card"]', { hasText: name }).first();
     await expect(card).toBeVisible({ timeout: 10000 });
     await card.locator('[aria-label="Options"]').click();
   }
@@ -192,7 +192,7 @@ export class DashboardPage {
   }
 
   async getEndpointCardCount(): Promise<number> {
-    return await this.page.locator('.webhook-card').count();
+    return await this.page.locator('[data-testid="endpoint-card"]').count();
   }
 
   async expectSuccessToast(text: string) {

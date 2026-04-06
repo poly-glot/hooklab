@@ -41,7 +41,7 @@ test.describe('Dashboard Page - Authenticated Journey', () => {
       await loginAsGuest(page);
       await createEndpointViaUI(page, 'Card Details Test');
 
-      const card = page.locator('.webhook-card', { hasText: 'Card Details Test' });
+      const card = page.locator('[data-testid="endpoint-card"]', { hasText: 'Card Details Test' });
       await expect(card.getByText(/\/w\//)).toBeVisible();
       await expect(card.getByText('Active', { exact: true })).toBeVisible();
       await expect(card.getByLabel('Options')).toBeVisible();

@@ -117,7 +117,7 @@ export async function sendWebhookRequests(
  * Disable an endpoint via the dashboard dropdown menu.
  */
 export async function disableEndpointViaUI(page: Page, name: string): Promise<void> {
-  const card = page.locator('.webhook-card', { hasText: name }).first();
+  const card = page.locator('[data-testid="endpoint-card"]', { hasText: name }).first();
   await card.getByLabel('Options').click();
   await page.getByRole('menuitem', { name: 'Disable' }).click();
   await expect(card.getByText('Closed')).toBeVisible({ timeout: 5000 });

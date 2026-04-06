@@ -4,11 +4,6 @@ set -e
 echo "⚡ ULTRA-FAST post-create setup for Hooklab..."
 
 # ============================================================
-# Fix permissions (minimal, non-blocking)
-# ============================================================
-sudo chown -R "$(id -u):$(id -g)" ~/.cache ~/.npm 2>/dev/null || true
-
-# ============================================================
 # Claude Code config - symlink ~/.claude.json from mounted dir
 # ============================================================
 if [ -f ~/.claude/.claude.json ] && [ ! -e ~/.claude.json ]; then
