@@ -43,6 +43,14 @@ export const FROM_EMAIL = Deno.env.get("FROM_EMAIL") || "noreply@junaid.guru";
 /** Application domain for sign-in continue URLs */
 export const APP_DOMAIN = Deno.env.get("APP_DOMAIN") || "hooklab.junaid.guru";
 
+// ── Internal Route Auth ────────────────────────────────────────────
+
+/** Expected audience in OIDC tokens for internal routes (Cloud Scheduler → Cloud Run) */
+export const INTERNAL_OIDC_AUDIENCE = Deno.env.get("INTERNAL_OIDC_AUDIENCE") || "";
+
+/** Expected service-account email for Cloud Scheduler OIDC tokens */
+export const INTERNAL_SCHEDULER_EMAIL = Deno.env.get("INTERNAL_SCHEDULER_EMAIL") || "";
+
 // ── Size Limits ────────────────────────────────────────────────────
 
 /** Maximum endpoint name length (characters) */
