@@ -363,6 +363,32 @@ describe("Firestore Security Rules", () => {
     });
   });
 
+  // ── Field injection on endpoint update ───────────────────────────────
+  describe("Endpoint update field restriction", () => {
+    it("Owner cannot inject arbitrary fields via update (doc bloat prevention)", async () => {
+      const db = globalThis.authedFirestore({ uid: "injector" });
+      await setDoc(doc(db, "endpoints", "injectTarget"), {
+        name: "Test",
+        userId: "injector",
+        script: "",
+        isActive: true,
+        defaultStatusCode: 200,
+        defaultContentType: "application/json",
+        defaultBody: '{"ok": true}',
+        totalExecutions: 0,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      // Try to add a field not in the allowlist
+      await assertFails(
+        updateDoc(doc(db, "endpoints", "injectTarget"), {
+          evilPayload: "A".repeat(10000),
+        })
+      );
+    });
+  });
+
   // ── Anonymous user quotas ───────────────────────────────────────────
   describe("Anonymous user endpoint quotas", () => {
     it("Anonymous user can create endpoint when under quota", async () => {

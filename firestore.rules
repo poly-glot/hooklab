@@ -133,6 +133,13 @@ service cloud.firestore {
                           .data.get('endpointCount', 0) < 10);
 
       allow update: if isOwner(resource.data.userId) &&
+                       // Prevent arbitrary field injection / doc bloat
+                       onlyAllowedFields([
+                         'name', 'userId', 'script', 'isActive',
+                         'defaultStatusCode', 'defaultContentType',
+                         'defaultBody', 'totalExecutions',
+                         'createdAt', 'updatedAt'
+                       ]) &&
                        // Cannot change ownership or creation time
                        request.resource.data.userId == resource.data.userId &&
                        request.resource.data.createdAt == resource.data.createdAt &&
