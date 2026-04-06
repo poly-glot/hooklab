@@ -118,6 +118,8 @@ const updateCases: [string, unknown, boolean, string?][] = [
 
   // Invalid content type
   ["non-string content type", { defaultContentType: 42 }, false, "defaultContentType"],
+  ["content type too long", { defaultContentType: "x".repeat(201) }, false, "defaultContentType"],
+  ["content type at max (200 chars)", { defaultContentType: "x".repeat(200) }, true],
 
   // Invalid default body
   ["non-string default body", { defaultBody: 123 }, false, "defaultBody"],

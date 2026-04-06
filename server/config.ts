@@ -62,6 +62,9 @@ export const MAX_SCRIPT_LENGTH = 65_536;
 /** Maximum default body length (bytes) */
 export const MAX_BODY_LENGTH = 10_000;
 
+/** Maximum default content type length (characters) */
+export const MAX_CONTENT_TYPE_LENGTH = 200;
+
 /** Maximum incoming webhook body size (bytes) - 1 MB */
 export const MAX_WEBHOOK_BODY_SIZE = 1_048_576;
 

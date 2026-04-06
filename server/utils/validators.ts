@@ -7,6 +7,7 @@
 
 import {
   MAX_BODY_LENGTH,
+  MAX_CONTENT_TYPE_LENGTH,
   MAX_NAME_LENGTH,
   MAX_SCRIPT_LENGTH,
 } from "../config.ts";
@@ -96,7 +97,7 @@ export function validateUpdateEndpoint(
   validateOptionalString(errors, "name", data.name, MAX_NAME_LENGTH, "Name");
   validateOptionalScript(errors, data.script);
   validateOptionalStatusCode(errors, data.defaultStatusCode);
-  validateOptionalString(errors, "defaultContentType", data.defaultContentType, undefined, "Content type");
+  validateOptionalString(errors, "defaultContentType", data.defaultContentType, MAX_CONTENT_TYPE_LENGTH, "Content type");
   validateOptionalString(errors, "defaultBody", data.defaultBody, MAX_BODY_LENGTH, "Default body");
 
   return { valid: errors.length === 0, errors: errors.length > 0 ? errors : undefined };
@@ -116,13 +117,11 @@ function validateOptionalString(
     errors.push({ field, message: `${label} must be a string` });
     return;
   }
-  if (field === "name" || field === "defaultBody") {
-    const len = field === "name" ? value.trim().length : value.length;
-    if (field === "name" && len === 0) {
-      errors.push({ field, message: `${label} cannot be empty` });
-    } else if (maxLength && len > maxLength) {
-      errors.push({ field, message: `${label} must be at most ${maxLength} characters` });
-    }
+  const len = field === "name" ? value.trim().length : value.length;
+  if (field === "name" && len === 0) {
+    errors.push({ field, message: `${label} cannot be empty` });
+  } else if (maxLength && len > maxLength) {
+    errors.push({ field, message: `${label} must be at most ${maxLength} characters` });
   }
 }
 
