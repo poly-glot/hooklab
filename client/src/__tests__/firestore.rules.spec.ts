@@ -392,7 +392,7 @@ describe("Firestore Security Rules", () => {
       );
     });
 
-    it("Anonymous user is blocked from creating endpoint when at quota (3)", async () => {
+    it("Anonymous user is blocked from creating endpoint when at quota (10)", async () => {
       const anonDb = globalThis.anonymousFirestore("anonUser2");
 
       // Create user doc at quota limit
@@ -401,7 +401,7 @@ describe("Firestore Security Rules", () => {
         email: "guest@guest.local",
         createdAt: serverTimestamp(),
         isAnonymous: true,
-        endpointCount: 3,
+        endpointCount: 10,
       });
 
       await assertFails(

@@ -90,7 +90,7 @@ export async function createUserDocument(
       lastLoginAt: serverTimestamp(),
       endpointCount: 0,
       quotas: {
-        maxEndpoints: isAnonymous ? 3 : 50,
+        maxEndpoints: isAnonymous ? 10 : 50,
         maxExecutionsPerDay: isAnonymous ? 100 : 10000,
         usedExecutionsToday: 0,
       },

@@ -125,11 +125,12 @@ service cloud.firestore {
                        (!('script' in request.resource.data) ||
                         request.resource.data.script.size() <= 65536) &&
                        request.resource.data.createdAt is timestamp &&
-                       // Guest users limited to 3 endpoints
+                       // Guest users limited to 10 endpoints (6 pre-seeded
+                       // demo endpoints + 4 user-created headroom)
                        (!isAnonymous() ||
                         !exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
                         get(/databases/$(database)/documents/users/$(request.auth.uid))
-                          .data.get('endpointCount', 0) < 3);
+                          .data.get('endpointCount', 0) < 10);
 
       allow update: if isOwner(resource.data.userId) &&
                        // Cannot change ownership or creation time
