@@ -76,11 +76,26 @@ endpoints.get("/", async (c) => {
 // POST /api/endpoints — create a new endpoint
 endpoints.post("/", async (c) => {
   const userId = c.get("userId");
+  const isAnonymous = c.get("isAnonymous");
   const body = await c.req.json<CreateEndpointRequest>();
 
   const validation = validateCreateEndpoint(body);
   if (!validation.valid) {
     return c.json({ error: validation.errors?.[0]?.message || "Invalid input" }, 400);
+  }
+
+  // Server-side quota enforcement (Firestore rules only apply to client SDK,
+  // not Admin SDK writes — so we must check here too)
+  const userDoc = await getDocument("users", userId);
+  const endpointCount = (userDoc?.endpointCount as number) ?? 0;
+  const maxEndpoints = isAnonymous
+    ? (userDoc?.quotas?.maxEndpoints as number ?? 10)
+    : (userDoc?.quotas?.maxEndpoints as number ?? 50);
+
+  if (endpointCount >= maxEndpoints) {
+    return c.json({
+      error: `Endpoint limit reached (${maxEndpoints}). ${isAnonymous ? "Sign up for a higher quota." : "Contact support to increase your limit."}`,
+    }, 429);
   }
 
   const endpoint = await createEndpoint(userId, body.name.trim(), body.script);
