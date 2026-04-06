@@ -18,6 +18,7 @@ import {
   createUserDocument,
   getUserDocument,
   updateLastLogin,
+  upgradeUserDocument,
   seedGuestData,
 } from "@/lib/firestore";
 import type { User } from "@/lib/api";
@@ -181,8 +182,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     const credential = EmailAuthProvider.credential(email, password);
     await linkWithCredential(auth.currentUser, credential);
-    // Update the user document
-    await createUserDocument(auth.currentUser.uid, email, false);
+    // Upgrade the user document: update email, isAnonymous, displayName, quotas
+    await upgradeUserDocument(auth.currentUser.uid, email);
   };
 
   const logout = async () => {

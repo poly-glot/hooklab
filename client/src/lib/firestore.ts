@@ -98,6 +98,30 @@ export async function createUserDocument(
   }
 }
 
+/**
+ * Upgrades a guest user document to a registered account.
+ *
+ * Updates email, isAnonymous, displayName, and quotas to registered-tier
+ * values. Called after linkWithCredential succeeds.
+ */
+export async function upgradeUserDocument(
+  uid: string,
+  email: string,
+): Promise<void> {
+  const userRef = doc(usersCol, uid);
+  await updateDoc(userRef, {
+    email,
+    isAnonymous: false,
+    displayName: email.split("@")[0],
+    lastLoginAt: serverTimestamp(),
+    quotas: {
+      maxEndpoints: 50,
+      maxExecutionsPerDay: 10000,
+      usedExecutionsToday: 0,
+    },
+  });
+}
+
 export async function getUserDocument(
   uid: string
 ): Promise<User | null> {
