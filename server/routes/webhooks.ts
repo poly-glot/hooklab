@@ -81,8 +81,9 @@ webhooks.all("/:endpointId", async (c) => {
   let body = "";
   try {
     body = await c.req.text();
-    // Still check actual length — Content-Length can be spoofed low
-    if (body.length > MAX_WEBHOOK_BODY_SIZE) {
+    // Still check actual byte length — Content-Length can be spoofed low.
+    // Use TextEncoder to get byte count, not .length which is UTF-16 code units.
+    if (new TextEncoder().encode(body).byteLength > MAX_WEBHOOK_BODY_SIZE) {
       return c.json({ error: "Request body too large" }, 413);
     }
   } catch {

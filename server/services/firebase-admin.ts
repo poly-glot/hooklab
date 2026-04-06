@@ -266,6 +266,8 @@ export async function updateDocument(
   const headers = await authHeaders();
   const hasDotKeys = Object.keys(data).some((k) => k.includes("."));
   const fields = hasDotKeys ? buildNestedFields(data) : objectToFields(data);
+  // encodeURIComponent is safe for dot-paths: dots are NOT encoded by it,
+  // which is correct — Firestore expects raw dot-paths in updateMask.fieldPaths.
   const fieldPaths = Object.keys(data)
     .map((k) => `updateMask.fieldPaths=${encodeURIComponent(k)}`)
     .join("&");

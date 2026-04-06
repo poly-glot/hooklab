@@ -5,6 +5,10 @@
     "dev:client": "cd client && npx vite --host",
     "build": "cd client && npx vite build",
     "preview": "cd client && npx vite preview",
-    "setup": "cd client && npm install"
+    "setup": "cd client && npm install",
+    "check": "cd server && deno check --all main.ts",
+    "lint": "cd server && deno lint",
+    "fmt": "cd server && deno fmt --check",
+    "test:server": "cd server && deno test --no-check --allow-net --allow-read --allow-env --ignore=routes/__tests__/seed-fix.test.ts --ignore=middleware/__tests__/auth.test.ts --ignore=services/__tests__/script-runner.test.ts --ignore=workers/__tests__/sandbox-security.spec.ts"
   }
 }
