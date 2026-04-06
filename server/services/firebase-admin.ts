@@ -189,6 +189,7 @@ export async function createDocument(
       const err = await res.text();
       throw new Error(`[FirebaseAdmin] createDocument ${collection}/${docId} failed: ${res.status} ${err}`);
     }
+    await res.body?.cancel();
     return docId;
   }
 
@@ -277,6 +278,9 @@ export async function updateDocument(
     const err = await res.text();
     throw new Error(`[FirebaseAdmin] updateDocument ${collection}/${docId} failed: ${res.status} ${err}`);
   }
+  // Consume the response body to release the TCP connection back to the pool.
+  // Deno keeps connections alive until the body is consumed or cancelled.
+  await res.body?.cancel();
 }
 
 /**
@@ -292,6 +296,7 @@ export async function deleteDocument(
     const err = await res.text();
     throw new Error(`[FirebaseAdmin] deleteDocument ${collection}/${docId} failed: ${res.status} ${err}`);
   }
+  await res.body?.cancel();
 }
 
 /**
