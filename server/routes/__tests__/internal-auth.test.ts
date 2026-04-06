@@ -60,6 +60,11 @@ function validateTokenStructure(token: string): {
     return { valid: false, reason: "expired" };
   }
 
+  // iss must be Google's OIDC issuer
+  if (payload.iss !== "https://accounts.google.com") {
+    return { valid: false, reason: "wrong issuer" };
+  }
+
   return { valid: true, payload };
 }
 
@@ -126,11 +131,26 @@ Deno.test("REJECT: garbage base64", () => {
   assertEquals(result.valid, false);
 });
 
-Deno.test("ACCEPT: structurally valid RS256 token with kid and future exp", () => {
+Deno.test("REJECT: wrong issuer (not accounts.google.com)", () => {
+  const token = makeToken(
+    { alg: "RS256", kid: "key1" },
+    {
+      sub: "test",
+      iss: "https://evil.example.com",
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    },
+  );
+  const result = validateTokenStructure(token);
+  assertEquals(result.valid, false);
+  assertEquals(result.reason, "wrong issuer");
+});
+
+Deno.test("ACCEPT: structurally valid RS256 token with kid, future exp, and correct iss", () => {
   const token = makeToken(
     { alg: "RS256", kid: "key1" },
     {
       sub: "sa@project.iam.gserviceaccount.com",
+      iss: "https://accounts.google.com",
       aud: "https://my-service.run.app",
       email: "scheduler@project.iam.gserviceaccount.com",
       exp: Math.floor(Date.now() / 1000) + 3600,

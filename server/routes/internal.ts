@@ -15,13 +15,11 @@ import {
 } from "../services/firebase-admin.ts";
 import { fsNow, FsTimestamp } from "../utils/firestore-values.ts";
 import {
-  GOOGLE_CERTS_URL,
   INTERNAL_OIDC_AUDIENCE,
   INTERNAL_SCHEDULER_EMAIL,
   K_SERVICE,
-  KEY_CACHE_DEFAULT_TTL,
 } from "../config.ts";
-import { decodeBase64Url } from "@std/encoding/base64url";
+import { verifyRS256Signature } from "../utils/jwt.ts";
 
 const internal = new Hono();
 
@@ -35,68 +33,24 @@ interface OidcPayload {
   iat: number;
 }
 
-const oidcKeyCache: { keys: Map<string, CryptoKey>; expiresAt: number } = {
-  keys: new Map(),
-  expiresAt: 0,
-};
-
-async function getGooglePublicKeys(): Promise<Map<string, CryptoKey>> {
-  if (oidcKeyCache.keys.size > 0 && Date.now() < oidcKeyCache.expiresAt) {
-    return oidcKeyCache.keys;
-  }
-
-  const res = await fetch(GOOGLE_CERTS_URL);
-  if (!res.ok) throw new Error(`Failed to fetch Google public keys: ${res.status}`);
-
-  const cacheControl = res.headers.get("Cache-Control") || "";
-  const maxAgeMatch = cacheControl.match(/max-age=(\d+)/);
-  const maxAge = maxAgeMatch ? parseInt(maxAgeMatch[1], 10) * 1000 : KEY_CACHE_DEFAULT_TTL;
-
-  const certs: Record<string, string> = await res.json();
-  const keys = new Map<string, CryptoKey>();
-
-  const { importPublicKey } = await import("../utils/x509.ts");
-
-  for (const [kid, pem] of Object.entries(certs)) {
-    keys.set(kid, await importPublicKey(pem));
-  }
-
-  oidcKeyCache.keys = keys;
-  oidcKeyCache.expiresAt = Date.now() + maxAge;
-  return keys;
-}
-
-function decodeJwtSegment(segment: string): unknown {
-  return JSON.parse(new TextDecoder().decode(decodeBase64Url(segment)));
-}
+/** Google OIDC token issuer. */
+const GOOGLE_OIDC_ISSUER = "https://accounts.google.com";
 
 /**
  * Verifies a Google OIDC token for internal routes.
- * Checks: RS256 signature, exp, aud, email.
+ * Uses the shared RS256 verifier (same key cache as Firebase auth).
+ * Checks: RS256 signature, iss, exp, aud, email.
  */
 export async function verifyOidcToken(token: string): Promise<OidcPayload | null> {
   try {
-    const parts = token.split(".");
-    if (parts.length !== 3) return null;
+    const result = await verifyRS256Signature(token);
+    if (!result) return null;
 
-    const [headerB64, payloadB64, signatureB64] = parts;
-    const header = decodeJwtSegment(headerB64) as { alg: string; kid?: string };
-
-    if (header.alg !== "RS256" || !header.kid) return null;
-
-    const keys = await getGooglePublicKeys();
-    const publicKey = keys.get(header.kid);
-    if (!publicKey) return null;
-
-    const data = new TextEncoder().encode(`${headerB64}.${payloadB64}`);
-    const signature = decodeBase64Url(signatureB64);
-    const valid = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", publicKey, signature, data);
-    if (!valid) return null;
-
-    const payload = decodeJwtSegment(payloadB64) as OidcPayload;
+    const payload = result.payload as unknown as OidcPayload;
     const now = Math.floor(Date.now() / 1000);
 
     if (payload.exp <= now) return null;
+    if (payload.iss !== GOOGLE_OIDC_ISSUER) return null;
     if (INTERNAL_OIDC_AUDIENCE && payload.aud !== INTERNAL_OIDC_AUDIENCE) return null;
     if (INTERNAL_SCHEDULER_EMAIL && payload.email !== INTERNAL_SCHEDULER_EMAIL) return null;
 
