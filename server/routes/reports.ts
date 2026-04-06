@@ -178,7 +178,9 @@ reports.post("/query", async (c) => {
         queryResult.columns.map((col) => {
           const val = row[col.name];
           const str = val === null || val === undefined ? "" : String(val);
-          return str.includes(",") || str.includes('"') ? `"${str.replace(/"/g, '""')}"` : str;
+          return str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")
+            ? `"${str.replace(/"/g, '""')}"`
+            : str;
         }).join(",")
       );
       data = [header, ...rows].join("\n");
