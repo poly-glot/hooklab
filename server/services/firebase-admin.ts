@@ -199,7 +199,44 @@ export async function createDocument(
 }
 
 /**
+ * Builds a nested Firestore fields object from dot-path keys.
+ *
+ * E.g. `{ "quotas.usedExecutionsToday": 0 }` becomes:
+ * `{ quotas: { mapValue: { fields: { usedExecutionsToday: { integerValue: "0" } } } } }`
+ *
+ * Plain keys (no dots) are handled normally via objectToFields.
+ */
+function buildNestedFields(
+  // deno-lint-ignore no-explicit-any
+  data: Record<string, any>,
+  // deno-lint-ignore no-explicit-any
+): Record<string, any> {
+  // deno-lint-ignore no-explicit-any
+  const result: Record<string, any> = {};
+
+  for (const [key, value] of Object.entries(data)) {
+    const parts = key.split(".");
+    if (parts.length === 1) {
+      result[key] = toFirestoreValue(value);
+    } else {
+      // Build nested mapValue structure from inside out
+      let current = toFirestoreValue(value);
+      for (let i = parts.length - 1; i >= 1; i--) {
+        current = { mapValue: { fields: { [parts[i]]: current } } };
+      }
+      result[parts[0]] = current;
+    }
+  }
+
+  return result;
+}
+
+/**
  * Updates an existing document in Firestore (partial update).
+ *
+ * Supports dot-path keys for nested field updates without clobbering
+ * sibling fields. E.g. `{ "quotas.usedExecutionsToday": 0 }` only
+ * updates that one nested field, preserving quotas.maxEndpoints etc.
  */
 export async function updateDocument(
   collection: string,
@@ -208,15 +245,20 @@ export async function updateDocument(
   data: Record<string, any>,
 ): Promise<void> {
   const headers = await authHeaders();
-  const fields = objectToFields(data);
+  const hasDotKeys = Object.keys(data).some((k) => k.includes("."));
+  const fields = hasDotKeys ? buildNestedFields(data) : objectToFields(data);
   const fieldPaths = Object.keys(data)
-    .map((k) => `updateMask.fieldPaths=${k}`)
+    .map((k) => `updateMask.fieldPaths=${encodeURIComponent(k)}`)
     .join("&");
-  await fetch(`${docUrl(collection, docId)}?${fieldPaths}`, {
+  const res = await fetch(`${docUrl(collection, docId)}?${fieldPaths}`, {
     method: "PATCH",
     headers,
     body: JSON.stringify({ fields }),
   });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`[FirebaseAdmin] updateDocument ${collection}/${docId} failed: ${res.status} ${err}`);
+  }
 }
 
 /**
