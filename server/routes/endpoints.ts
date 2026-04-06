@@ -153,10 +153,25 @@ endpoints.get("/:id/requests", async (c) => {
 // DELETE /api/endpoints/:id/requests/:requestId — delete a single execution log
 // NOTE: Must be registered before the bulk delete route so Hono matches the more specific path first.
 endpoints.delete("/:id/requests/:requestId", async (c) => {
-  const endpoint = await getOwnedEndpoint(c, c.get("userId"));
+  const userId = c.get("userId");
+  const endpoint = await getOwnedEndpoint(c, userId);
   if (!endpoint) return c.json({ error: "Endpoint not found" }, 404);
 
-  await deleteDocument("executions", c.req.param("requestId"));
+  const requestId = c.req.param("requestId");
+
+  // Verify the execution belongs to this endpoint AND this user
+  // to prevent IDOR — without this, any authenticated user could
+  // delete any execution log by ID.
+  const execution = await getDocument("executions", requestId);
+  if (
+    !execution ||
+    execution.endpointId !== endpoint.id ||
+    execution.userId !== userId
+  ) {
+    return c.json({ error: "Execution not found" }, 404);
+  }
+
+  await deleteDocument("executions", requestId);
   return c.json({ ok: true });
 });
 
