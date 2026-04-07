@@ -96,7 +96,7 @@ describe("useEndpoints", () => {
       await result.current.deleteEndpoint("ep-2");
     });
 
-    expect(mockDeleteEndpointFn).toHaveBeenCalledWith("ep-2");
+    expect(mockDeleteEndpointFn).toHaveBeenCalledWith("ep-2", "u1");
     expect(result.current.endpoints).toHaveLength(2);
     expect(result.current.endpoints.find((e) => e.id === "ep-2")).toBeUndefined();
   });

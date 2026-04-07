@@ -363,6 +363,32 @@ describe("Firestore Security Rules", () => {
     });
   });
 
+  // ── Field injection on endpoint update ───────────────────────────────
+  describe("Endpoint update field restriction", () => {
+    it("Owner cannot inject arbitrary fields via update (doc bloat prevention)", async () => {
+      const db = globalThis.authedFirestore({ uid: "injector" });
+      await setDoc(doc(db, "endpoints", "injectTarget"), {
+        name: "Test",
+        userId: "injector",
+        script: "",
+        isActive: true,
+        defaultStatusCode: 200,
+        defaultContentType: "application/json",
+        defaultBody: '{"ok": true}',
+        totalExecutions: 0,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      // Try to add a field not in the allowlist
+      await assertFails(
+        updateDoc(doc(db, "endpoints", "injectTarget"), {
+          evilPayload: "A".repeat(10000),
+        })
+      );
+    });
+  });
+
   // ── Anonymous user quotas ───────────────────────────────────────────
   describe("Anonymous user endpoint quotas", () => {
     it("Anonymous user can create endpoint when under quota", async () => {
@@ -392,7 +418,7 @@ describe("Firestore Security Rules", () => {
       );
     });
 
-    it("Anonymous user is blocked from creating endpoint when at quota (3)", async () => {
+    it("Anonymous user is blocked from creating endpoint when at quota (10)", async () => {
       const anonDb = globalThis.anonymousFirestore("anonUser2");
 
       // Create user doc at quota limit
@@ -401,7 +427,7 @@ describe("Firestore Security Rules", () => {
         email: "guest@guest.local",
         createdAt: serverTimestamp(),
         isAnonymous: true,
-        endpointCount: 3,
+        endpointCount: 10,
       });
 
       await assertFails(

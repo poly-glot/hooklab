@@ -4,11 +4,6 @@ set -e
 echo "⚡ ULTRA-FAST post-create setup for Hooklab..."
 
 # ============================================================
-# Fix permissions (minimal, non-blocking)
-# ============================================================
-sudo chown -R "$(id -u):$(id -g)" ~/.cache ~/.npm 2>/dev/null || true
-
-# ============================================================
 # Claude Code config - symlink ~/.claude.json from mounted dir
 # ============================================================
 if [ -f ~/.claude/.claude.json ] && [ ! -e ~/.claude.json ]; then
@@ -44,6 +39,13 @@ alias dev-client='cd /workspace/client && npm run dev'
 alias dev-server='cd /workspace/server && deno task dev'
 alias fb-emulators='firebase emulators:start'
 alias install-all='npm install && cd client && npm install && cd ..'
+
+# Playwright
+alias pw='cd /workspace/client && npx playwright'
+alias pw-test='cd /workspace/client && npx playwright test'
+alias pw-ui='cd /workspace/client && npx playwright test --ui'
+alias pw-report='cd /workspace/client && npx playwright show-report'
+alias pw-codegen='cd /workspace/client && npx playwright codegen'
 
 # Docker
 alias dc='docker compose'

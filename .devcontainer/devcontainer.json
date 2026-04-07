@@ -69,7 +69,8 @@
         "esbenp.prettier-vscode",
         "dbaeumer.vscode-eslint",
         "ms-azuretools.vscode-docker",
-        "toba.vsfire"
+        "toba.vsfire",
+        "ms-playwright.playwright"
       ],
       "settings": {
         "deno.enable": true,

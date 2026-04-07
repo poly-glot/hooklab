@@ -43,6 +43,14 @@ export const FROM_EMAIL = Deno.env.get("FROM_EMAIL") || "noreply@junaid.guru";
 /** Application domain for sign-in continue URLs */
 export const APP_DOMAIN = Deno.env.get("APP_DOMAIN") || "hooklab.junaid.guru";
 
+// ── Internal Route Auth ────────────────────────────────────────────
+
+/** Expected audience in OIDC tokens for internal routes (Cloud Scheduler → Cloud Run) */
+export const INTERNAL_OIDC_AUDIENCE = Deno.env.get("INTERNAL_OIDC_AUDIENCE") || "";
+
+/** Expected service-account email for Cloud Scheduler OIDC tokens */
+export const INTERNAL_SCHEDULER_EMAIL = Deno.env.get("INTERNAL_SCHEDULER_EMAIL") || "";
+
 // ── Size Limits ────────────────────────────────────────────────────
 
 /** Maximum endpoint name length (characters) */
@@ -53,6 +61,9 @@ export const MAX_SCRIPT_LENGTH = 65_536;
 
 /** Maximum default body length (bytes) */
 export const MAX_BODY_LENGTH = 10_000;
+
+/** Maximum default content type length (characters) */
+export const MAX_CONTENT_TYPE_LENGTH = 200;
 
 /** Maximum incoming webhook body size (bytes) - 1 MB */
 export const MAX_WEBHOOK_BODY_SIZE = 1_048_576;

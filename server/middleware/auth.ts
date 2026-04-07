@@ -14,68 +14,15 @@
  */
 
 import type { Context, Next } from "hono";
-import { decodeBase64Url } from "@std/encoding/base64url";
 import {
   AUTH_EMULATOR_HOST,
-  GOOGLE_CERTS_URL,
-  KEY_CACHE_DEFAULT_TTL,
   PROJECT_ID,
   TOKEN_EXPIRY_LEEWAY,
 } from "../config.ts";
 import type { FirebaseTokenPayload } from "../types.ts";
-import { importPublicKey } from "../utils/x509.ts";
-
-// ── Public key cache ────────────────────────────────────────────────
-
-const keyCache: { keys: Map<string, CryptoKey>; expiresAt: number } = {
-  keys: new Map(),
-  expiresAt: 0,
-};
-
-/**
- * Fetches and caches Google's public keys for Firebase token verification.
- *
- * Keys are cached based on the Cache-Control header from Google's endpoint.
- * Defaults to 1-hour TTL if Cache-Control is not present.
- *
- * @returns Map of key ID (kid) to CryptoKey
- * @throws Error if fetching public keys fails
- */
-async function getPublicKeys(): Promise<Map<string, CryptoKey>> {
-  if (keyCache.keys.size > 0 && Date.now() < keyCache.expiresAt) {
-    return keyCache.keys;
-  }
-
-  const res = await fetch(GOOGLE_CERTS_URL);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch Google public keys: ${res.status}`);
-  }
-
-  // Parse Cache-Control for expiry
-  const cacheControl = res.headers.get("Cache-Control") || "";
-  const maxAgeMatch = cacheControl.match(/max-age=(\d+)/);
-  const maxAge = maxAgeMatch
-    ? parseInt(maxAgeMatch[1], 10) * 1000
-    : KEY_CACHE_DEFAULT_TTL;
-
-  const certs: Record<string, string> = await res.json();
-  const keys = new Map<string, CryptoKey>();
-
-  for (const [kid, pem] of Object.entries(certs)) {
-    keys.set(kid, await importPublicKey(pem));
-  }
-
-  keyCache.keys = keys;
-  keyCache.expiresAt = Date.now() + maxAge;
-  return keys;
-}
+import { decodeJwtSegment, verifyRS256Signature } from "../utils/jwt.ts";
 
 // ── Token verification ──────────────────────────────────────────────
-
-/** Decode a base64url JWT segment into a parsed JSON object. */
-function decodeJwtSegment(segment: string): unknown {
-  return JSON.parse(new TextDecoder().decode(decodeBase64Url(segment)));
-}
 
 /**
  * Verifies a token issued by the Firebase Auth emulator.
@@ -98,51 +45,20 @@ function verifyEmulatorToken(
  * Verifies a production Firebase ID token using RS256 signature verification.
  *
  * Validates:
- * - RS256 algorithm and kid header
+ * - RS256 algorithm and kid header (via shared verifyRS256Signature)
  * - Cryptographic signature against Google's public keys
  * - exp, iat, auth_time, iss, aud, sub claims
  */
 async function verifyProductionToken(
-  headerB64: string,
-  payloadB64: string,
-  signatureB64: string,
+  token: string,
 ): Promise<FirebaseTokenPayload | null> {
-  const header = decodeJwtSegment(headerB64) as { alg: string; kid?: string };
-
-  if (header.alg !== "RS256") {
-    console.debug("[auth] token rejected: unexpected alg", header.alg);
+  const result = await verifyRS256Signature(token);
+  if (!result) {
+    console.debug("[auth] token rejected: invalid RS256 signature or structure");
     return null;
   }
 
-  const kid = header.kid;
-  if (!kid) {
-    console.debug("[auth] token rejected: missing kid");
-    return null;
-  }
-
-  const keys = await getPublicKeys();
-  const publicKey = keys.get(kid);
-  if (!publicKey) {
-    console.debug("[auth] token rejected: unknown kid", kid);
-    return null;
-  }
-
-  // Verify signature
-  const data = new TextEncoder().encode(`${headerB64}.${payloadB64}`);
-  const signature = decodeBase64Url(signatureB64);
-  const valid = await crypto.subtle.verify(
-    "RSASSA-PKCS1-v1_5",
-    publicKey,
-    signature,
-    data,
-  );
-  if (!valid) {
-    console.debug("[auth] token rejected: invalid signature");
-    return null;
-  }
-
-  // Decode and validate claims
-  const payload = decodeJwtSegment(payloadB64) as FirebaseTokenPayload;
+  const payload = result.payload as unknown as FirebaseTokenPayload;
   const now = Math.floor(Date.now() / 1000);
 
   if (payload.exp <= now) {
@@ -188,13 +104,11 @@ async function verifyFirebaseToken(
     const parts = idToken.split(".");
     if (parts.length !== 3) return null;
 
-    const [headerB64, payloadB64, signatureB64] = parts;
-
     if (AUTH_EMULATOR_HOST) {
-      return verifyEmulatorToken(payloadB64);
+      return verifyEmulatorToken(parts[1]);
     }
 
-    return await verifyProductionToken(headerB64, payloadB64, signatureB64);
+    return await verifyProductionToken(idToken);
   } catch (err) {
     console.debug("[auth] token verification error:", err);
     return null;

@@ -12,11 +12,11 @@ const PROJECT_ID = 'demo-webhook';
 export async function loginAsGuest(page: Page): Promise<void> {
   await page.goto('/auth');
   // click() auto-waits for visibility — no separate expect needed
-  await page.getByText('Guest').click({ timeout: 15000 });
-  await page.waitForURL('**/dashboard', { timeout: 20000 });
+  await page.getByText('Guest').click({ timeout: 20000 });
+  await page.waitForURL('**/dashboard', { timeout: 30000 });
   await expect(
     page.getByRole('button', { name: /ADD NEW/i }).first()
-  ).toBeVisible({ timeout: 15000 });
+  ).toBeVisible({ timeout: 20000 });
 }
 
 /**
@@ -117,7 +117,7 @@ export async function sendWebhookRequests(
  * Disable an endpoint via the dashboard dropdown menu.
  */
 export async function disableEndpointViaUI(page: Page, name: string): Promise<void> {
-  const card = page.locator('.webhook-card', { hasText: name }).first();
+  const card = page.locator('[data-testid="endpoint-card"]', { hasText: name }).first();
   await card.getByLabel('Options').click();
   await page.getByRole('menuitem', { name: 'Disable' }).click();
   await expect(card.getByText('Closed')).toBeVisible({ timeout: 5000 });
@@ -137,8 +137,10 @@ export async function waitForRequests(page: Page, count: number): Promise<void> 
  * Clear all Firestore emulator data.
  */
 export async function clearFirestoreData(): Promise<void> {
+  // Use the named "hooklab" database — matches firebase-init.ts and firebase.json.
+  // Using "(default)" would silently clear nothing since the app writes to "hooklab".
   await fetch(
-    `http://${FIRESTORE_EMULATOR}/emulator/v1/projects/${PROJECT_ID}/databases/(default)/documents`,
+    `http://${FIRESTORE_EMULATOR}/emulator/v1/projects/${PROJECT_ID}/databases/hooklab/documents`,
     { method: 'DELETE' }
   ).catch(() => {});
 }

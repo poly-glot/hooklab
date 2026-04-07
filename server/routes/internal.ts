@@ -14,19 +14,62 @@ import {
   createDocument,
 } from "../services/firebase-admin.ts";
 import { fsNow, FsTimestamp } from "../utils/firestore-values.ts";
-import { K_SERVICE } from "../config.ts";
+import {
+  INTERNAL_OIDC_AUDIENCE,
+  INTERNAL_SCHEDULER_EMAIL,
+  K_SERVICE,
+} from "../config.ts";
+import { verifyRS256Signature } from "../utils/jwt.ts";
 
 const internal = new Hono();
 
+// ── OIDC token verification ──────────────────────────────────────────
+
+interface OidcPayload {
+  iss: string;
+  aud: string;
+  email?: string;
+  exp: number;
+  iat: number;
+}
+
+/** Google OIDC token issuer. */
+const GOOGLE_OIDC_ISSUER = "https://accounts.google.com";
+
 /**
- * Lightweight auth guard for internal endpoints.
+ * Verifies a Google OIDC token for internal routes.
+ * Uses the shared RS256 verifier (same key cache as Firebase auth).
+ * Checks: RS256 signature, iss, exp, aud, email.
+ */
+export async function verifyOidcToken(token: string): Promise<OidcPayload | null> {
+  try {
+    const result = await verifyRS256Signature(token);
+    if (!result) return null;
+
+    const payload = result.payload as unknown as OidcPayload;
+    const now = Math.floor(Date.now() / 1000);
+
+    if (payload.exp <= now) return null;
+    if (payload.iss !== GOOGLE_OIDC_ISSUER) return null;
+    if (INTERNAL_OIDC_AUDIENCE && payload.aud !== INTERNAL_OIDC_AUDIENCE) return null;
+    if (INTERNAL_SCHEDULER_EMAIL && payload.email !== INTERNAL_SCHEDULER_EMAIL) return null;
+
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+// ── Auth middleware ───────────────────────────────────────────────────
+
+/**
+ * Auth guard for internal endpoints.
  *
- * In production (Cloud Run), Cloud Scheduler sends an OIDC token which
- * Cloud Run verifies automatically — so if the request reaches the
- * container, it's already authenticated. We just block external access
- * by checking that we're running on Cloud Run (K_SERVICE is set).
+ * In production (Cloud Run): Verifies the OIDC token signature, audience
+ * and service-account email. Does NOT trust Cloud Run's built-in check
+ * because the service is public (--allow-unauthenticated for webhooks).
  *
- * In development, allow all requests so we can test locally.
+ * In development: Allow all requests so we can test locally.
  */
 internal.use("*", async (c, next) => {
   if (K_SERVICE) {
@@ -34,8 +77,12 @@ internal.use("*", async (c, next) => {
     if (!authHeader?.startsWith("Bearer ")) {
       return c.json({ error: "Unauthorized" }, 401);
     }
-    // Cloud Run validates the OIDC token before it reaches us.
-    // If we're here, the token is valid.
+
+    const token = authHeader.slice(7);
+    const payload = await verifyOidcToken(token);
+    if (!payload) {
+      return c.json({ error: "Unauthorized — invalid OIDC token" }, 401);
+    }
   }
   await next();
 });
@@ -57,7 +104,7 @@ internal.post("/cleanup", async (c) => {
   await Promise.all(
     users.map((user) =>
       updateDocument("users", user.id, {
-        quotas: { usedExecutionsToday: 0 },
+        "quotas.usedExecutionsToday": 0,
       }),
     ),
   );

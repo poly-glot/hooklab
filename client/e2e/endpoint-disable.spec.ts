@@ -20,27 +20,27 @@ test.describe('Endpoint Disable/Enable', () => {
     });
 
     test('disabled endpoint card shows Closed status', async ({ page }) => {
-      const disabledCard = page.locator('.webhook-card', { hasText: 'Disabled Endpoint' });
+      const disabledCard = page.locator('[data-testid="endpoint-card"]', { hasText: 'Disabled Endpoint' });
       await expect(disabledCard).toBeVisible();
       await expect(disabledCard.getByText('Closed')).toBeVisible();
     });
 
     test('active endpoint card shows Active status', async ({ page }) => {
-      const activeCard = page.locator('.webhook-card', { hasText: 'Active Endpoint' });
+      const activeCard = page.locator('[data-testid="endpoint-card"]', { hasText: 'Active Endpoint' });
       await expect(activeCard).toBeVisible();
       await expect(activeCard.getByText('Active')).toBeVisible();
     });
 
     test('disabled endpoint card does not show green status dot', async ({ page }) => {
-      const disabledCard = page.locator('.webhook-card', { hasText: 'Disabled Endpoint' });
-      const statusDot = disabledCard.locator('.webhook-card__status-dot');
+      const disabledCard = page.locator('[data-testid="endpoint-card"]', { hasText: 'Disabled Endpoint' });
+      const statusDot = disabledCard.locator('[data-testid="status-dot"]');
       const dotCount = await statusDot.count();
       expect(dotCount).toBe(0);
     });
 
     test('active endpoint card shows green status dot', async ({ page }) => {
-      const activeCard = page.locator('.webhook-card', { hasText: 'Active Endpoint' });
-      const statusDot = activeCard.locator('.webhook-card__status-dot');
+      const activeCard = page.locator('[data-testid="endpoint-card"]', { hasText: 'Active Endpoint' });
+      const statusDot = activeCard.locator('[data-testid="status-dot"]');
       await expect(statusDot).toBeVisible();
     });
   });

@@ -18,6 +18,7 @@ import {
   createUserDocument,
   getUserDocument,
   updateLastLogin,
+  upgradeUserDocument,
   seedGuestData,
 } from "@/lib/firestore";
 import type { User } from "@/lib/api";
@@ -86,7 +87,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         );
       });
     } else {
-      // Opened in a different browser — ask user to confirm email via UI
+      // Opened in a different browser — ask user to confirm email via UI.
+      // Must clear emailLinkPending so the auth state listener can run
+      // and isLoading becomes false (otherwise the app stays on "Loading...").
+      setEmailLinkPending(false);
       setPendingEmailConfirmation(true);
     }
   }, [emailLinkPending, completeEmailLinkSignIn]);
@@ -181,8 +185,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     const credential = EmailAuthProvider.credential(email, password);
     await linkWithCredential(auth.currentUser, credential);
-    // Update the user document
-    await createUserDocument(auth.currentUser.uid, email, false);
+    // Upgrade the user document: update email, isAnonymous, displayName, quotas
+    await upgradeUserDocument(auth.currentUser.uid, email);
   };
 
   const logout = async () => {

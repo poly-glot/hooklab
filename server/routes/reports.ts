@@ -9,6 +9,7 @@
 
 import { Hono } from "hono";
 import { authMiddleware } from "../middleware/auth.ts";
+import { encodeCsvCell } from "../utils/csv.ts";
 import {
   DURATION_DAYS,
   REPORT_MAX_BYTES_PER_QUERY,
@@ -175,11 +176,7 @@ reports.post("/query", async (c) => {
     } else if (format === "csv") {
       const header = queryResult.columns.map((col) => col.name).join(",");
       const rows = queryResult.rows.map((row) =>
-        queryResult.columns.map((col) => {
-          const val = row[col.name];
-          const str = val === null || val === undefined ? "" : String(val);
-          return str.includes(",") || str.includes('"') ? `"${str.replace(/"/g, '""')}"` : str;
-        }).join(",")
+        queryResult.columns.map((col) => encodeCsvCell(row[col.name])).join(",")
       );
       data = [header, ...rows].join("\n");
     } else if (format === "json") {

@@ -180,11 +180,16 @@ export async function createDocument(
   const fields = objectToFields(data);
 
   if (docId) {
-    await fetch(docUrl(collection, docId), {
+    const res = await fetch(docUrl(collection, docId), {
       method: "PATCH",
       headers,
       body: JSON.stringify({ fields }),
     });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`[FirebaseAdmin] createDocument ${collection}/${docId} failed: ${res.status} ${err}`);
+    }
+    await res.body?.cancel();
     return docId;
   }
 
@@ -193,13 +198,64 @@ export async function createDocument(
     headers,
     body: JSON.stringify({ fields }),
   });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`[FirebaseAdmin] createDocument ${collection} failed: ${res.status} ${err}`);
+  }
   const result = await res.json();
   const name: string = result.name || "";
   return name.split("/").pop() || "";
 }
 
 /**
+ * Builds a nested Firestore fields object from dot-path keys.
+ *
+ * E.g. `{ "quotas.usedExecutionsToday": 0 }` becomes:
+ * `{ quotas: { mapValue: { fields: { usedExecutionsToday: { integerValue: "0" } } } } }`
+ *
+ * Plain keys (no dots) are handled normally via objectToFields.
+ */
+export function buildNestedFields(
+  // deno-lint-ignore no-explicit-any
+  data: Record<string, any>,
+  // deno-lint-ignore no-explicit-any
+): Record<string, any> {
+  // deno-lint-ignore no-explicit-any
+  const result: Record<string, any> = {};
+
+  for (const [key, value] of Object.entries(data)) {
+    const parts = key.split(".");
+    if (parts.length === 1) {
+      result[key] = toFirestoreValue(value);
+    } else {
+      // Deep-merge into existing mapValue so two dot-paths sharing a
+      // root (e.g. "quotas.a" and "quotas.b") don't clobber each other.
+      // deno-lint-ignore no-explicit-any
+      let container = result as Record<string, any>;
+      for (let i = 0; i < parts.length - 1; i++) {
+        const existing = container[parts[i]];
+        if (existing?.mapValue?.fields) {
+          container = existing.mapValue.fields;
+        } else {
+          // deno-lint-ignore no-explicit-any
+          const nested: Record<string, any> = {};
+          container[parts[i]] = { mapValue: { fields: nested } };
+          container = nested;
+        }
+      }
+      container[parts[parts.length - 1]] = toFirestoreValue(value);
+    }
+  }
+
+  return result;
+}
+
+/**
  * Updates an existing document in Firestore (partial update).
+ *
+ * Supports dot-path keys for nested field updates without clobbering
+ * sibling fields. E.g. `{ "quotas.usedExecutionsToday": 0 }` only
+ * updates that one nested field, preserving quotas.maxEndpoints etc.
  */
 export async function updateDocument(
   collection: string,
@@ -208,15 +264,25 @@ export async function updateDocument(
   data: Record<string, any>,
 ): Promise<void> {
   const headers = await authHeaders();
-  const fields = objectToFields(data);
+  const hasDotKeys = Object.keys(data).some((k) => k.includes("."));
+  const fields = hasDotKeys ? buildNestedFields(data) : objectToFields(data);
+  // encodeURIComponent is safe for dot-paths: dots are NOT encoded by it,
+  // which is correct — Firestore expects raw dot-paths in updateMask.fieldPaths.
   const fieldPaths = Object.keys(data)
-    .map((k) => `updateMask.fieldPaths=${k}`)
+    .map((k) => `updateMask.fieldPaths=${encodeURIComponent(k)}`)
     .join("&");
-  await fetch(`${docUrl(collection, docId)}?${fieldPaths}`, {
+  const res = await fetch(`${docUrl(collection, docId)}?${fieldPaths}`, {
     method: "PATCH",
     headers,
     body: JSON.stringify({ fields }),
   });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`[FirebaseAdmin] updateDocument ${collection}/${docId} failed: ${res.status} ${err}`);
+  }
+  // Consume the response body to release the TCP connection back to the pool.
+  // Deno keeps connections alive until the body is consumed or cancelled.
+  await res.body?.cancel();
 }
 
 /**
@@ -227,7 +293,12 @@ export async function deleteDocument(
   docId: string,
 ): Promise<void> {
   const headers = await authHeaders();
-  await fetch(docUrl(collection, docId), { method: "DELETE", headers });
+  const res = await fetch(docUrl(collection, docId), { method: "DELETE", headers });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`[FirebaseAdmin] deleteDocument ${collection}/${docId} failed: ${res.status} ${err}`);
+  }
+  await res.body?.cancel();
 }
 
 /**

@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mock Firebase modules before importing the service
 vi.mock("@/lib/firebase-init", () => ({
   app: {},
-  auth: {},
+  auth: { currentUser: { uid: "mock-uid" } },
   firestore: {},
 }));
 
@@ -34,13 +34,17 @@ vi.mock("firebase/firestore", () => {
     limit: vi.fn((n) => n),
     onSnapshot: vi.fn(),
     serverTimestamp: vi.fn(() => ({ _type: "serverTimestamp" })),
-    Timestamp: {
-      now: vi.fn(() => ({ toDate: () => new Date() })),
-      fromDate: vi.fn((d: Date) => ({
-        toDate: () => d,
-        seconds: Math.floor(d.getTime() / 1000),
-      })),
-    },
+    increment: vi.fn((n: number) => ({ _type: "increment", operand: n })),
+    Timestamp: Object.assign(
+      vi.fn(),
+      {
+        now: vi.fn(() => ({ toDate: () => new Date() })),
+        fromDate: vi.fn((d: Date) => ({
+          toDate: () => d,
+          seconds: Math.floor(d.getTime() / 1000),
+        })),
+      }
+    ),
     setDoc: vi.fn(async () => {}),
   };
 });
@@ -68,12 +72,89 @@ describe("Firestore Service Layer", () => {
   });
 
   describe("User operations", () => {
-    it("createUserDocument calls setDoc with correct data", async () => {
+    it("createUserDocument calls setDoc with merge:true", async () => {
       const { setDoc } = await import("firebase/firestore");
       const { createUserDocument } = await import("@/lib/firestore");
 
       await createUserDocument("user123", "test@example.com", false);
-      expect(setDoc).toHaveBeenCalled();
+      expect(setDoc).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          email: "test@example.com",
+          isAnonymous: false,
+        }),
+        { merge: true }
+      );
+    });
+
+    it("createUserDocument sets endpointCount and createdAt for new users", async () => {
+      const { setDoc } = await import("firebase/firestore");
+      const { createUserDocument } = await import("@/lib/firestore");
+
+      await createUserDocument("newuser", "new@example.com", true);
+      expect(setDoc).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          endpointCount: 0,
+          isAnonymous: true,
+          quotas: expect.objectContaining({
+            maxEndpoints: 10,
+          }),
+        }),
+        { merge: true }
+      );
+    });
+
+    it("createUserDocument backfills quotas when existing doc lacks them", async () => {
+      // Simulate a doc that exists (created by seed) but has no quotas
+      const { getDoc, setDoc } = await import("firebase/firestore");
+      const { createUserDocument } = await import("@/lib/firestore");
+
+      vi.mocked(getDoc).mockResolvedValueOnce({
+        exists: () => true,
+        id: "seeded-user",
+        data: () => ({ seeded: true, endpointCount: 6 }),
+      } as never);
+
+      await createUserDocument("seeded-user", "guest@guest.local", true);
+
+      expect(setDoc).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          isAnonymous: true,
+          quotas: expect.objectContaining({
+            maxEndpoints: 10,
+            maxExecutionsPerDay: 100,
+          }),
+        }),
+        { merge: true }
+      );
+      // Should NOT include endpointCount (preserve seed's value of 6)
+      const callArgs = vi.mocked(setDoc).mock.calls[0][1] as Record<string, unknown>;
+      expect(callArgs).not.toHaveProperty("endpointCount");
+      expect(callArgs).not.toHaveProperty("createdAt");
+    });
+
+    it("createUserDocument skips quotas when existing doc already has them", async () => {
+      const { getDoc, setDoc } = await import("firebase/firestore");
+      const { createUserDocument } = await import("@/lib/firestore");
+
+      vi.mocked(getDoc).mockResolvedValueOnce({
+        exists: () => true,
+        id: "full-user",
+        data: () => ({
+          seeded: true,
+          endpointCount: 6,
+          isAnonymous: true,
+          quotas: { maxEndpoints: 10, maxExecutionsPerDay: 100, usedExecutionsToday: 0 },
+        }),
+      } as never);
+
+      await createUserDocument("full-user", "guest@guest.local", true);
+
+      const callArgs = vi.mocked(setDoc).mock.calls[0][1] as Record<string, unknown>;
+      // Should NOT include quotas (already exists, rules prevent overwriting maxEndpoints)
+      expect(callArgs).not.toHaveProperty("quotas");
     });
 
     it("getUserDocument returns null for non-existent user", async () => {
@@ -94,7 +175,33 @@ describe("Firestore Service Layer", () => {
       expect(orderBy).toHaveBeenCalledWith("createdAt", "desc");
     });
 
-    it("deleteEndpoint calls deleteDoc", async () => {
+    it("createEndpoint increments endpointCount on user doc", async () => {
+      const { updateDoc, increment } = await import("firebase/firestore");
+      const { createEndpoint } = await import("@/lib/firestore");
+
+      await createEndpoint("user123", "Test Endpoint");
+
+      // updateDoc should be called with increment(1) for endpointCount
+      expect(updateDoc).toHaveBeenCalledWith(
+        expect.anything(),
+        { endpointCount: increment(1) }
+      );
+    });
+
+    it("deleteEndpoint calls deleteDoc and decrements endpointCount", async () => {
+      const { deleteDoc, updateDoc, increment } = await import("firebase/firestore");
+      const { deleteEndpoint } = await import("@/lib/firestore");
+
+      await deleteEndpoint("ep123", "user123");
+
+      expect(deleteDoc).toHaveBeenCalled();
+      expect(updateDoc).toHaveBeenCalledWith(
+        expect.anything(),
+        { endpointCount: increment(-1) }
+      );
+    });
+
+    it("deleteEndpoint without userId falls back to auth.currentUser", async () => {
       const { deleteDoc } = await import("firebase/firestore");
       const { deleteEndpoint } = await import("@/lib/firestore");
 

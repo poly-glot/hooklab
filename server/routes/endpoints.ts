@@ -31,6 +31,8 @@ import {
   validateCreateEndpoint,
   validateUpdateEndpoint,
 } from "../utils/validators.ts";
+import { checkEndpointQuota } from "../utils/quota.ts";
+import { isExecutionOwned } from "../utils/ownership.ts";
 
 const endpoints = new Hono<{ Variables: ContextVariables }>();
 
@@ -76,11 +78,27 @@ endpoints.get("/", async (c) => {
 // POST /api/endpoints — create a new endpoint
 endpoints.post("/", async (c) => {
   const userId = c.get("userId");
+  const isAnonymous = c.get("isAnonymous");
   const body = await c.req.json<CreateEndpointRequest>();
 
   const validation = validateCreateEndpoint(body);
   if (!validation.valid) {
     return c.json({ error: validation.errors?.[0]?.message || "Invalid input" }, 400);
+  }
+
+  // Server-side quota enforcement (Firestore rules only apply to client SDK,
+  // not Admin SDK writes — so we must check here too)
+  const userDoc = await getDocument("users", userId);
+  const quota = checkEndpointQuota(
+    userDoc?.endpointCount as number | undefined,
+    userDoc?.quotas?.maxEndpoints as number | undefined,
+    isAnonymous,
+  );
+
+  if (!quota.allowed) {
+    return c.json({
+      error: `Endpoint limit reached (${quota.maxEndpoints}). ${isAnonymous ? "Sign up for a higher quota." : "Contact support to increase your limit."}`,
+    }, 429);
   }
 
   const endpoint = await createEndpoint(userId, body.name.trim(), body.script);
@@ -153,10 +171,21 @@ endpoints.get("/:id/requests", async (c) => {
 // DELETE /api/endpoints/:id/requests/:requestId — delete a single execution log
 // NOTE: Must be registered before the bulk delete route so Hono matches the more specific path first.
 endpoints.delete("/:id/requests/:requestId", async (c) => {
-  const endpoint = await getOwnedEndpoint(c, c.get("userId"));
+  const userId = c.get("userId");
+  const endpoint = await getOwnedEndpoint(c, userId);
   if (!endpoint) return c.json({ error: "Endpoint not found" }, 404);
 
-  await deleteDocument("executions", c.req.param("requestId"));
+  const requestId = c.req.param("requestId");
+
+  // Verify the execution belongs to this endpoint AND this user
+  // to prevent IDOR — without this, any authenticated user could
+  // delete any execution log by ID.
+  const execution = await getDocument("executions", requestId);
+  if (!isExecutionOwned(execution, endpoint.id, userId)) {
+    return c.json({ error: "Execution not found" }, 404);
+  }
+
+  await deleteDocument("executions", requestId);
   return c.json({ ok: true });
 });
 
