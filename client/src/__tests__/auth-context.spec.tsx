@@ -11,7 +11,7 @@ const mockCreateUserWithEmailAndPassword = vi.fn();
 const mockSignOut = vi.fn();
 const mockLinkWithCredential = vi.fn();
 
-const mockIsSignInWithEmailLink = vi.fn(() => false);
+const mockIsSignInWithEmailLink = vi.fn((..._args: unknown[]) => false);
 const mockSignInWithEmailLink = vi.fn();
 
 vi.mock("firebase/auth", () => ({
