@@ -10,34 +10,13 @@ import {
   BQ_DATASET,
   BQ_TABLE,
   FIRESTORE_EMULATOR_HOST,
-  GCP_METADATA_TOKEN_URL,
   PROJECT_ID,
+  REPORT_MAX_BYTES_PER_QUERY,
   REPORT_MAX_ROWS,
-  TOKEN_CACHE_BUFFER,
 } from "../config.ts";
-import type { TableColumn, TableOutput } from "../types.ts";
-import { runQuery } from "./firebase-admin.ts";
-
-// ── Access token (shared with firebase-admin pattern) ──────────────
-
-let cachedToken: { token: string; expiresAt: number } | null = null;
-
-async function getAccessToken(): Promise<string> {
-  if (FIRESTORE_EMULATOR_HOST) return "owner";
-  if (cachedToken && cachedToken.expiresAt > Date.now() + TOKEN_CACHE_BUFFER) {
-    return cachedToken.token;
-  }
-  const res = await fetch(GCP_METADATA_TOKEN_URL, {
-    headers: { "Metadata-Flavor": "Google" },
-  });
-  if (!res.ok) throw new Error(`Failed to get access token: ${res.status}`);
-  const data = await res.json();
-  cachedToken = {
-    token: data.access_token,
-    expiresAt: Date.now() + data.expires_in * 1000,
-  };
-  return cachedToken.token;
-}
+import type { TableColumn } from "../types.ts";
+import { getAccessToken, runQuery } from "./firebase-admin.ts";
+import { BigQueryError } from "./errors.ts";
 
 // ── BigQuery REST helpers ──────────────────────────────────────────
 
@@ -97,7 +76,7 @@ export async function dryRunQuery(
 
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`BigQuery dry run failed: ${err}`);
+    throw new BigQueryError(`BigQuery dry run failed: ${err}`);
   }
 
   const result = await res.json();
@@ -129,6 +108,10 @@ export async function executeQuery(
     useLegacySql: false,
     parameterMode: "NAMED",
     maxResults: REPORT_MAX_ROWS,
+    // Hard server-side ceiling on bytes scanned, independent of the dry-run
+    // estimate. BigQuery cancels the job before charging if the actual scan
+    // would exceed this. Defense-in-depth against an under-estimate.
+    maximumBytesBilled: String(REPORT_MAX_BYTES_PER_QUERY),
     queryParameters: buildQueryParams({ ...params, userId }),
   };
 
@@ -143,7 +126,7 @@ export async function executeQuery(
 
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`BigQuery query failed: ${err}`);
+    throw new BigQueryError(`BigQuery query failed: ${err}`);
   }
 
   const result = await res.json();
@@ -157,15 +140,17 @@ export async function executeQuery(
     }),
   );
 
-  // deno-lint-ignore no-explicit-any
-  const rows: Record<string, unknown>[] = (result.rows || []).map((row: any) => {
-    const obj: Record<string, unknown> = {};
+  const rows: Record<string, unknown>[] = (result.rows || []).map(
     // deno-lint-ignore no-explicit-any
-    row.f.forEach((cell: any, i: number) => {
-      obj[columns[i].name] = cell.v;
-    });
-    return obj;
-  });
+    (row: any) => {
+      const obj: Record<string, unknown> = {};
+      // deno-lint-ignore no-explicit-any
+      row.f.forEach((cell: any, i: number) => {
+        obj[columns[i].name] = cell.v;
+      });
+      return obj;
+    },
+  );
 
   return {
     columns,
@@ -242,7 +227,9 @@ function buildQueryParams(
 ): any[] {
   return Object.entries(params).map(([name, value]) => ({
     name,
-    parameterType: { type: TIMESTAMP_PARAMS.has(name) ? "TIMESTAMP" : "STRING" },
+    parameterType: {
+      type: TIMESTAMP_PARAMS.has(name) ? "TIMESTAMP" : "STRING",
+    },
     parameterValue: { value },
   }));
 }
@@ -270,11 +257,14 @@ interface ExecutionRow {
  * Streams a webhook execution row into BigQuery.
  * Fire-and-forget — errors are logged but never block the webhook response.
  */
-export async function streamExecutionToBigQuery(row: ExecutionRow): Promise<void> {
+export async function streamExecutionToBigQuery(
+  row: ExecutionRow,
+): Promise<void> {
   if (FIRESTORE_EMULATOR_HOST) return; // Skip in local dev
 
   const token = await getAccessToken();
-  const url = `https://bigquery.googleapis.com/bigquery/v2/projects/${PROJECT_ID}/datasets/${BQ_DATASET}/tables/${BQ_TABLE}/insertAll`;
+  const url =
+    `https://bigquery.googleapis.com/bigquery/v2/projects/${PROJECT_ID}/datasets/${BQ_DATASET}/tables/${BQ_TABLE}/insertAll`;
 
   const res = await fetch(url, {
     method: "POST",
@@ -289,12 +279,15 @@ export async function streamExecutionToBigQuery(row: ExecutionRow): Promise<void
 
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`BigQuery streaming insert failed: ${err}`);
+    throw new BigQueryError(`BigQuery streaming insert failed: ${err}`);
   }
 
   const result = await res.json();
   if (result.insertErrors?.length) {
-    console.error("[BigQuery] Insert errors:", JSON.stringify(result.insertErrors));
+    console.error(
+      "[BigQuery] Insert errors:",
+      JSON.stringify(result.insertErrors),
+    );
   }
 }
 

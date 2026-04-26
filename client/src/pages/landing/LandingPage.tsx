@@ -200,7 +200,7 @@ export default function LandingPage() {
           <a href="#features" className={styles.lpNavLink}>Features</a>
           <a href="#scripting" className={styles.lpNavLink}>Scripting</a>
           <a href="#endpoints" className={styles.lpNavLink}>Endpoints</a>
-          <a href="https://github.com/nicholasadamou/webhook" target="_blank" rel="noopener noreferrer" className={styles.lpNavGithub} aria-label="GitHub">
+          <a href="https://github.com/poly-glot/hooklab/" target="_blank" rel="noopener noreferrer" className={styles.lpNavGithub} aria-label="GitHub">
             <GitHubIcon className={styles.lpIconMd} />
           </a>
           <button onClick={goToApp} className={styles.lpNavCta}>
@@ -432,7 +432,7 @@ export default function LandingPage() {
             <a href="#features" className={styles.lpFooterLink}>Features</a>
             <a href="#scripting" className={styles.lpFooterLink}>Scripting</a>
             <a href="#endpoints" className={styles.lpFooterLink}>Endpoints</a>
-            <a href="https://github.com/nicholasadamou/webhook" target="_blank" rel="noopener noreferrer" className={cn(styles.lpFooterLink, styles.lpFooterGithub)}>
+            <a href="https://github.com/poly-glot/hooklab/" target="_blank" rel="noopener noreferrer" className={cn(styles.lpFooterLink, styles.lpFooterGithub)}>
               <GitHubIcon className={styles.lpIconSm} />
               GitHub
             </a>

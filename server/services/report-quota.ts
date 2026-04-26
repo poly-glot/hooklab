@@ -7,7 +7,7 @@
 
 import { REPORT_QUOTAS } from "../config.ts";
 import type { QuotaStatus } from "../types.ts";
-import { getDocument, createDocument, updateDocument } from "./firebase-admin.ts";
+import { getDocument, incrementFields } from "./firebase-admin.ts";
 
 function todayKey(): string {
   return new Date().toISOString().split("T")[0]; // "2026-03-28"
@@ -75,25 +75,22 @@ export async function checkQuota(
   return null;
 }
 
-/** Records a completed query against the user's quota */
+/**
+ * Atomically records a completed query against the user's quota.
+ *
+ * Uses Firestore field transforms (commit API) so concurrent requests
+ * never lose increments. The doc is upserted on first write of the day:
+ * `userId` and `date` are set via the updateMask, while `queriesUsed`
+ * and `bytesUsed` are atomic INCREMENT transforms in the same write.
+ */
 export async function recordQueryUsage(
   userId: string,
   bytesProcessed: number,
 ): Promise<void> {
-  const docId = quotaDocId(userId);
-  const existing = await getDocument("report_quotas", docId);
-
-  if (existing && existing.date === todayKey()) {
-    await updateDocument("report_quotas", docId, {
-      queriesUsed: ((existing.queriesUsed as number) || 0) + 1,
-      bytesUsed: ((existing.bytesUsed as number) || 0) + bytesProcessed,
-    });
-  } else {
-    await createDocument("report_quotas", {
-      userId,
-      date: todayKey(),
-      queriesUsed: 1,
-      bytesUsed: bytesProcessed,
-    }, docId);
-  }
+  await incrementFields(
+    "report_quotas",
+    quotaDocId(userId),
+    { userId, date: todayKey() },
+    { queriesUsed: 1, bytesUsed: bytesProcessed },
+  );
 }

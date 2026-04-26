@@ -8,8 +8,7 @@
 // ── Environment Variables ──────────────────────────────────────────
 
 /** Firebase/GCP project identifier */
-export const PROJECT_ID =
-  Deno.env.get("GCP_PROJECT") ||
+export const PROJECT_ID = Deno.env.get("GCP_PROJECT") ||
   Deno.env.get("GCLOUD_PROJECT") ||
   Deno.env.get("FIREBASE_PROJECT_ID") ||
   "demo-webhook";
@@ -46,10 +45,12 @@ export const APP_DOMAIN = Deno.env.get("APP_DOMAIN") || "hooklab.junaid.guru";
 // ── Internal Route Auth ────────────────────────────────────────────
 
 /** Expected audience in OIDC tokens for internal routes (Cloud Scheduler → Cloud Run) */
-export const INTERNAL_OIDC_AUDIENCE = Deno.env.get("INTERNAL_OIDC_AUDIENCE") || "";
+export const INTERNAL_OIDC_AUDIENCE = Deno.env.get("INTERNAL_OIDC_AUDIENCE") ||
+  "";
 
 /** Expected service-account email for Cloud Scheduler OIDC tokens */
-export const INTERNAL_SCHEDULER_EMAIL = Deno.env.get("INTERNAL_SCHEDULER_EMAIL") || "";
+export const INTERNAL_SCHEDULER_EMAIL =
+  Deno.env.get("INTERNAL_SCHEDULER_EMAIL") || "";
 
 // ── Size Limits ────────────────────────────────────────────────────
 
@@ -125,7 +126,8 @@ export const DEFAULT_CONTENT_TYPE = "application/json";
 export const DEFAULT_BODY = '{"ok": true}';
 
 /** Default script template for new endpoints */
-export const DEFAULT_SCRIPT = `// Access the incoming request via the 'request' object:
+export const DEFAULT_SCRIPT =
+  `// Access the incoming request via the 'request' object:
 // - request.method (string)
 // - request.headers (object)
 // - request.query (object)
@@ -151,7 +153,27 @@ export const BQ_TABLE = Deno.env.get("BQ_TABLE") || "executions";
 export const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-2.0-flash";
 
 /** Vertex AI location (should match your GCP region) */
-export const VERTEX_AI_LOCATION = Deno.env.get("VERTEX_AI_LOCATION") || "europe-west2";
+export const VERTEX_AI_LOCATION = Deno.env.get("VERTEX_AI_LOCATION") ||
+  "europe-west2";
+
+/**
+ * Optional local-LLM endpoint (OpenAI-compatible — Ollama, llama.cpp,
+ * vLLM, LM Studio, etc.). When set, the reporting chat routes its
+ * Gemini calls through this endpoint instead of Vertex AI. Intended
+ * for offline development and prompt-defense testing on small models;
+ * NOT a supported production path.
+ *
+ * Example: LOCAL_LLM_URL=http://localhost:11434/v1
+ */
+export const LOCAL_LLM_URL = Deno.env.get("LOCAL_LLM_URL") || "";
+
+/** Model name used with the local LLM endpoint. */
+export const LOCAL_LLM_MODEL = Deno.env.get("LOCAL_LLM_MODEL") ||
+  "qwen2.5-coder:3b";
+
+/** Optional bearer token for the local LLM endpoint (most local servers
+ *  don't need one; some hosted OpenAI-compat gateways do). */
+export const LOCAL_LLM_API_KEY = Deno.env.get("LOCAL_LLM_API_KEY") || "";
 
 /** Maximum rows returned by any report query */
 export const REPORT_MAX_ROWS = 1000;
@@ -159,11 +181,30 @@ export const REPORT_MAX_ROWS = 1000;
 /** Maximum bytes a single query may scan (500 MB) */
 export const REPORT_MAX_BYTES_PER_QUERY = 500 * 1024 * 1024;
 
-/** Daily query limits per user tier */
+/** Daily query limits per user tier.
+ *  Guest budget is intentionally small — anonymous Firebase accounts are
+ *  trivial to mint, so the per-account budget is the only ceiling on
+ *  cost per attacker IP. */
 export const REPORT_QUOTAS = {
-  guest: { maxQueriesPerDay: 5, maxBytesPerDay: 500 * 1024 * 1024 },
+  guest: { maxQueriesPerDay: 2, maxBytesPerDay: 100 * 1024 * 1024 },
   registered: { maxQueriesPerDay: 50, maxBytesPerDay: 5 * 1024 * 1024 * 1024 },
 } as const;
+
+/** Min spacing between report queries per user (denial-of-wallet floor). */
+export const REPORT_RATE_LIMIT_MS = 2000;
+
+/** Max chars of a single cell sent into the summary prompt. */
+export const REPORT_SUMMARY_CELL_MAX_CHARS = 256;
+/** Max total chars of the data preview blob sent into the summary prompt. */
+export const REPORT_SUMMARY_PREVIEW_MAX_CHARS = 8 * 1024;
+/** Columns dropped from the summary preview (raw payloads are too big and
+ *  often contain secrets users wouldn't expect to ship to an LLM). */
+export const REPORT_SUMMARY_DROP_COLUMNS = [
+  "request_body",
+  "response_body",
+  "request_headers",
+  "query_params",
+] as const;
 
 /** Duration tier to days mapping */
 export const DURATION_DAYS: Record<string, number> = {
@@ -201,7 +242,13 @@ export const SECURITY_HEADERS = {
 // ── CORS Configuration ─────────────────────────────────────────────
 
 /** Allowed HTTP methods for CORS */
-export const CORS_METHODS = ["GET", "POST", "PUT", "DELETE", "OPTIONS"] as const;
+export const CORS_METHODS = [
+  "GET",
+  "POST",
+  "PUT",
+  "DELETE",
+  "OPTIONS",
+] as const;
 
 /** Allowed HTTP headers for CORS */
 export const CORS_HEADERS = ["Content-Type", "Authorization"] as const;
