@@ -276,7 +276,13 @@ export interface SuccessResponse {
 export type ReportDuration = "7d" | "30d" | "90d" | "180d";
 
 /** Allowed output formats for report results */
-export type ReportFormat = "table" | "csv" | "json" | "markdown" | "chart" | "summary";
+export type ReportFormat =
+  | "table"
+  | "csv"
+  | "json"
+  | "markdown"
+  | "chart"
+  | "summary";
 
 /** Request body for POST /api/reports/query */
 export interface ReportQueryRequest {
@@ -352,23 +358,42 @@ export interface ReportHistoryEntry {
   meta: ReportMeta;
 }
 
-/** Gemini's structured response when generating SQL */
-export interface GeminiSQLResponse {
-  sql: string;
+/**
+ * Gemini's structured response — SQL fragments, NOT a complete SQL string.
+ *
+ * The backend assembles the final SQL with hard-coded scaffolding so the
+ * LLM cannot omit/weaken the user_id and time-window predicates, swap the
+ * FROM table, exceed LIMIT, or inject a second statement.
+ *
+ *   SELECT {select_columns}
+ *   FROM hooklab.executions
+ *   WHERE user_id = @userId
+ *     AND execution_timestamp >= @startTime
+ *     AND execution_timestamp < @endTime
+ *     AND ({where_extra | "TRUE"})
+ *   {group_by}
+ *   {order_by}
+ *   LIMIT min({limit}, REPORT_MAX_ROWS)
+ */
+export interface GeminiSQLFragments {
+  /** Column expressions only — no `*`, no FROM/JOIN, no `;`. */
+  select_columns: string;
+  /** Optional extra WHERE predicate; wrapped in parens, ANDed with the
+   *  scaffolded user_id + time-window filters. Cannot weaken them. */
+  where_extra?: string;
+  /** Optional GROUP BY body, e.g. "method" or "DATE(execution_timestamp)". */
+  group_by?: string;
+  /** Optional ORDER BY body, e.g. "cnt DESC". */
+  order_by?: string;
+  /** Requested row limit; backend clamps to REPORT_MAX_ROWS. */
+  limit?: number;
   explanation: string;
-  params: Record<string, string>;
   suggestedFormat: ReportFormat;
   chartConfig?: {
     type: "bar" | "line" | "pie" | "scatter";
     xAxis: string;
     yAxis: string;
   };
-}
-
-/** Result of SQL validation */
-export interface SQLValidationResult {
-  valid: boolean;
-  error?: string;
 }
 
 /** Discovered schema for an endpoint's body payloads */

@@ -13,8 +13,8 @@ import {
   DEFAULT_BODY,
   DEFAULT_CONTENT_TYPE,
   DEFAULT_SCRIPT,
-  FIRESTORE_DB,
   DEFAULT_STATUS_CODE,
+  FIRESTORE_DB,
   FIRESTORE_EMULATOR_HOST,
   GCP_METADATA_TOKEN_URL,
   K_SERVICE,
@@ -27,48 +27,65 @@ import type {
   FirestoreUser,
 } from "../types.ts";
 import {
-  FsTimestamp,
   fieldsToObject,
   fsNow,
+  FsTimestamp,
   objectToFields,
   toFirestoreValue,
 } from "../utils/firestore-values.ts";
 
 // Re-export for consumers that expect these from firebase-admin
-export { FsTimestamp, fsNow };
+export { fsNow, FsTimestamp };
 
-// ── Access token cache ──────────────────────────────────────────────
+// ── Access token cache (process-wide singleton) ────────────────────
+//
+// All GCP-talking services (Firestore, BigQuery, Vertex AI, Identity
+// Toolkit) share this cache. The metadata-server token is scoped to
+// the runtime service account, so the same access_token works for any
+// API the SA has IAM permission to call — no point fetching twice.
+
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
+// Singleton promise for the in-flight fetch — prevents the cold-start
+// stampede where N concurrent callers each hit the metadata server.
+let pendingFetch: Promise<string> | null = null;
+
 /**
- * Gets a GCP access token for Firestore API requests.
+ * Returns a GCP access token, cached and shared across services.
  *
- * In emulator mode, returns "owner" to bypass security rules.
- * In production, fetches from GCP metadata server and caches the token.
+ * In emulator mode, returns "owner" — Firestore emulator accepts any
+ * non-empty token; BigQuery code paths don't run in emulator mode.
  */
-export async function getAccessToken(): Promise<string> {
-  if (FIRESTORE_EMULATOR_HOST) return "owner";
-
+export function getAccessToken(): Promise<string> {
+  // Synchronous fast paths — no await needed; just wrap in Promise.resolve.
+  if (FIRESTORE_EMULATOR_HOST) return Promise.resolve("owner");
   if (cachedToken && cachedToken.expiresAt > Date.now() + TOKEN_CACHE_BUFFER) {
-    return cachedToken.token;
+    return Promise.resolve(cachedToken.token);
   }
+  if (pendingFetch) return pendingFetch;
 
-  const res = await fetch(GCP_METADATA_TOKEN_URL, {
-    headers: { "Metadata-Flavor": "Google" },
-  });
+  pendingFetch = (async () => {
+    try {
+      const res = await fetch(GCP_METADATA_TOKEN_URL, {
+        headers: { "Metadata-Flavor": "Google" },
+      });
+      if (!res.ok) {
+        throw new Error(
+          `Failed to get access token from metadata server: ${res.status}`,
+        );
+      }
+      const data = await res.json();
+      cachedToken = {
+        token: data.access_token,
+        expiresAt: Date.now() + data.expires_in * 1000,
+      };
+      return cachedToken.token;
+    } finally {
+      pendingFetch = null;
+    }
+  })();
 
-  if (!res.ok) {
-    throw new Error(
-      `Failed to get access token from metadata server: ${res.status}`,
-    );
-  }
-
-  const data = await res.json();
-  cachedToken = {
-    token: data.access_token,
-    expiresAt: Date.now() + data.expires_in * 1000,
-  };
-  return cachedToken.token;
+  return pendingFetch;
 }
 
 // ── URL builders ────────────────────────────────────────────────────
@@ -110,11 +127,65 @@ function docPath(collection: string, docId: string): string {
 }
 
 /**
+ * Atomically increments numeric fields on a document via the Firestore
+ * commit API. Upserts the document with `initial` (only used if the doc
+ * doesn't exist yet — `update` paired with the `updateTransforms` runs
+ * a single atomic write).
+ *
+ * Use this in place of read-modify-write for counters where lost updates
+ * matter (e.g. quota tracking under concurrent requests).
+ */
+export async function incrementFields(
+  collection: string,
+  docId: string,
+  initial: Record<string, unknown>,
+  increments: Record<string, number>,
+): Promise<void> {
+  const headers = await authHeaders();
+  const body = {
+    writes: [
+      {
+        update: {
+          name: docPath(collection, docId),
+          fields: objectToFields(initial),
+        },
+        // Only set initial fields on first write; subsequent writes only
+        // run the transforms. The updateMask makes this an upsert that
+        // doesn't clobber the counter values being incremented.
+        updateMask: { fieldPaths: Object.keys(initial) },
+        updateTransforms: Object.entries(increments).map((
+          [fieldPath, delta],
+        ) => ({
+          fieldPath,
+          increment: { integerValue: String(delta) },
+        })),
+      },
+    ],
+  };
+
+  const res = await fetch(commitUrl(), {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(
+      `[FirebaseAdmin] incrementFields ${collection}/${docId} failed: ${res.status} ${err}`,
+    );
+  }
+  await res.body?.cancel();
+}
+
+/**
  * Atomically writes multiple documents using Firestore commit API.
  * Each write is an "update" (upsert) with the full document fields.
  */
 export async function batchWrite(
-  writes: Array<{ collection: string; docId: string; data: Record<string, unknown> }>,
+  writes: Array<
+    { collection: string; docId: string; data: Record<string, unknown> }
+  >,
 ): Promise<void> {
   const headers = await authHeaders();
   const body = {
@@ -187,7 +258,9 @@ export async function createDocument(
     });
     if (!res.ok) {
       const err = await res.text();
-      throw new Error(`[FirebaseAdmin] createDocument ${collection}/${docId} failed: ${res.status} ${err}`);
+      throw new Error(
+        `[FirebaseAdmin] createDocument ${collection}/${docId} failed: ${res.status} ${err}`,
+      );
     }
     await res.body?.cancel();
     return docId;
@@ -200,7 +273,9 @@ export async function createDocument(
   });
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`[FirebaseAdmin] createDocument ${collection} failed: ${res.status} ${err}`);
+    throw new Error(
+      `[FirebaseAdmin] createDocument ${collection} failed: ${res.status} ${err}`,
+    );
   }
   const result = await res.json();
   const name: string = result.name || "";
@@ -278,7 +353,9 @@ export async function updateDocument(
   });
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`[FirebaseAdmin] updateDocument ${collection}/${docId} failed: ${res.status} ${err}`);
+    throw new Error(
+      `[FirebaseAdmin] updateDocument ${collection}/${docId} failed: ${res.status} ${err}`,
+    );
   }
   // Consume the response body to release the TCP connection back to the pool.
   // Deno keeps connections alive until the body is consumed or cancelled.
@@ -293,10 +370,15 @@ export async function deleteDocument(
   docId: string,
 ): Promise<void> {
   const headers = await authHeaders();
-  const res = await fetch(docUrl(collection, docId), { method: "DELETE", headers });
+  const res = await fetch(docUrl(collection, docId), {
+    method: "DELETE",
+    headers,
+  });
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`[FirebaseAdmin] deleteDocument ${collection}/${docId} failed: ${res.status} ${err}`);
+    throw new Error(
+      `[FirebaseAdmin] deleteDocument ${collection}/${docId} failed: ${res.status} ${err}`,
+    );
   }
   await res.body?.cancel();
 }
@@ -316,27 +398,26 @@ export async function runQuery(
   const headers = await authHeaders();
 
   // deno-lint-ignore no-explicit-any
-  const where: any =
-    filters.length === 1
-      ? {
+  const where: any = filters.length === 1
+    ? {
+      fieldFilter: {
+        field: { fieldPath: filters[0].field },
+        op: filters[0].op,
+        value: toFirestoreValue(filters[0].value),
+      },
+    }
+    : {
+      compositeFilter: {
+        op: "AND",
+        filters: filters.map((f) => ({
           fieldFilter: {
-            field: { fieldPath: filters[0].field },
-            op: filters[0].op,
-            value: toFirestoreValue(filters[0].value),
+            field: { fieldPath: f.field },
+            op: f.op,
+            value: toFirestoreValue(f.value),
           },
-        }
-      : {
-          compositeFilter: {
-            op: "AND",
-            filters: filters.map((f) => ({
-              fieldFilter: {
-                field: { fieldPath: f.field },
-                op: f.op,
-                value: toFirestoreValue(f.value),
-              },
-            })),
-          },
-        };
+        })),
+      },
+    };
 
   // deno-lint-ignore no-explicit-any
   const structuredQuery: any = {
@@ -555,7 +636,13 @@ export async function deleteByQuery(
   filters: Array<{ field: string; op: string; value: unknown }>,
 ): Promise<number> {
   let totalDeleted = 0;
-  let results = await runQuery(collection, filters, undefined, "DESCENDING", 500);
+  let results = await runQuery(
+    collection,
+    filters,
+    undefined,
+    "DESCENDING",
+    500,
+  );
 
   while (results.length > 0) {
     await Promise.all(results.map((doc) => deleteDocument(collection, doc.id)));

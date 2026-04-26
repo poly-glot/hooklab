@@ -49,7 +49,7 @@ export function AppHeader() {
               </span>
             </div>
             <a
-              href="https://github.com/nicholasadamou/webhook"
+              href="https://github.com/poly-glot/hooklab/"
               target="_blank"
               rel="noopener noreferrer"
               className={styles.appHeaderGithub}
@@ -68,7 +68,7 @@ export function AppHeader() {
         )}
         {!user && (
           <a
-            href="https://github.com/nicholasadamou/webhook"
+            href="https://github.com/poly-glot/hooklab/"
             target="_blank"
             rel="noopener noreferrer"
             className={styles.appHeaderGithub}
