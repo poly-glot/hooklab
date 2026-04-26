@@ -48,6 +48,13 @@ test.describe('Reports Page', () => {
   });
 
   test('submitting a query returns results', async ({ page }) => {
+    // Bumped because LOCAL_LLM_URL routes the query through a real LLM —
+    // small models on CPU can take 30–90s per call, plus a cold-start
+    // model-load on the first request (~30–60s extra). The canned local
+    // fallback (when LOCAL_LLM_URL is unset) returns in <1s, so the cap
+    // is harmless there.
+    test.setTimeout(240_000);
+
     await loginAsGuest(page);
 
     // Seed data ensures some executions exist
@@ -76,7 +83,7 @@ test.describe('Reports Page', () => {
     // Look for either result data, an error message, or a response bubble
     const responseOrError = page.locator('[class*="message"]')
       .or(page.getByText(/rows|results|error|no data/i));
-    await expect(responseOrError.first()).toBeVisible({ timeout: 30000 });
+    await expect(responseOrError.first()).toBeVisible({ timeout: 180_000 });
   });
 
   test('guest is restricted to 7-day duration', async ({ page }) => {

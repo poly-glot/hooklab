@@ -43,8 +43,10 @@ const REASON = ENABLED ? "" : "skipped — set LOCAL_LLM_URL to enable";
 const NOW = new Date().toISOString();
 const WEEK_AGO = new Date(Date.now() - 7 * 86400 * 1000).toISOString();
 
-// Generous timeout — small models on CPU can take 30s+ per call.
-const TIMEOUT_MS = 90_000;
+// Generous timeout — small models on CPU can take 30s+ per call, and
+// the FIRST call after process start triggers a model load (cold start)
+// that adds another 30–60s on top. 180s covers both.
+const TIMEOUT_MS = 180_000;
 
 /**
  * Runs `fn` with an AbortController-backed timeout. Aborts the in-flight
