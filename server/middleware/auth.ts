@@ -16,6 +16,7 @@
 import type { Context, Next } from "hono";
 import {
   AUTH_EMULATOR_HOST,
+  GOOGLE_CERTS_URL,
   PROJECT_ID,
   TOKEN_EXPIRY_LEEWAY,
 } from "../config.ts";
@@ -52,7 +53,7 @@ function verifyEmulatorToken(
 async function verifyProductionToken(
   token: string,
 ): Promise<FirebaseTokenPayload | null> {
-  const result = await verifyRS256Signature(token);
+  const result = await verifyRS256Signature(token, GOOGLE_CERTS_URL);
   if (!result) {
     console.debug("[auth] token rejected: invalid RS256 signature or structure");
     return null;

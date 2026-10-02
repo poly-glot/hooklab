@@ -5,22 +5,16 @@
  * - Firebase Auth ID token verification (middleware/auth.ts)
  * - Cloud Scheduler OIDC token verification (routes/internal.ts)
  *
- * Single key cache — avoids duplicate fetches and stale-cache divergence.
+ * One key cache per certificate endpoint.
  */
 
 import { decodeBase64Url } from "@std/encoding/base64url";
-import {
-  GOOGLE_CERTS_URL,
-  KEY_CACHE_DEFAULT_TTL,
-} from "../config.ts";
+import { KEY_CACHE_DEFAULT_TTL } from "../config.ts";
 import { importPublicKey } from "./x509.ts";
 
 // ── Public key cache (shared across all callers) ───────────────────
 
-const keyCache: { keys: Map<string, CryptoKey>; expiresAt: number } = {
-  keys: new Map(),
-  expiresAt: 0,
-};
+const keyCaches = new Map<string, { keys: Map<string, CryptoKey>; expiresAt: number }>();
 
 /**
  * Fetches and caches Google's public keys for JWT verification.
@@ -28,12 +22,13 @@ const keyCache: { keys: Map<string, CryptoKey>; expiresAt: number } = {
  * Keys are cached based on the Cache-Control header from Google's endpoint.
  * Defaults to 1-hour TTL if Cache-Control is not present.
  */
-export async function getGooglePublicKeys(): Promise<Map<string, CryptoKey>> {
-  if (keyCache.keys.size > 0 && Date.now() < keyCache.expiresAt) {
-    return keyCache.keys;
+export async function getGooglePublicKeys(certsUrl: string): Promise<Map<string, CryptoKey>> {
+  const cached = keyCaches.get(certsUrl);
+  if (cached && cached.keys.size > 0 && Date.now() < cached.expiresAt) {
+    return cached.keys;
   }
 
-  const res = await fetch(GOOGLE_CERTS_URL);
+  const res = await fetch(certsUrl);
   if (!res.ok) {
     throw new Error(`Failed to fetch Google public keys: ${res.status}`);
   }
@@ -51,8 +46,7 @@ export async function getGooglePublicKeys(): Promise<Map<string, CryptoKey>> {
     keys.set(kid, await importPublicKey(pem));
   }
 
-  keyCache.keys = keys;
-  keyCache.expiresAt = Date.now() + maxAge;
+  keyCaches.set(certsUrl, { keys, expiresAt: Date.now() + maxAge });
   return keys;
 }
 
@@ -70,6 +64,7 @@ export function decodeJwtSegment(segment: string): unknown {
  */
 export async function verifyRS256Signature(
   token: string,
+  certsUrl: string,
 ): Promise<{ header: Record<string, unknown>; payload: Record<string, unknown> } | null> {
   const parts = token.split(".");
   if (parts.length !== 3) return null;
@@ -81,7 +76,7 @@ export async function verifyRS256Signature(
   if (header.alg !== "RS256") return null;
   if (!header.kid || typeof header.kid !== "string") return null;
 
-  const keys = await getGooglePublicKeys();
+  const keys = await getGooglePublicKeys(certsUrl);
   const publicKey = keys.get(header.kid as string);
   if (!publicKey) return null;
 
