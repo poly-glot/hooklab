@@ -15,6 +15,7 @@ import {
 } from "../services/firebase-admin.ts";
 import { fsNow, FsTimestamp } from "../utils/firestore-values.ts";
 import {
+  GOOGLE_OIDC_CERTS_URL,
   INTERNAL_OIDC_AUDIENCE,
   INTERNAL_SCHEDULER_EMAIL,
   K_SERVICE,
@@ -38,12 +39,11 @@ const GOOGLE_OIDC_ISSUER = "https://accounts.google.com";
 
 /**
  * Verifies a Google OIDC token for internal routes.
- * Uses the shared RS256 verifier (same key cache as Firebase auth).
  * Checks: RS256 signature, iss, exp, aud, email.
  */
 export async function verifyOidcToken(token: string): Promise<OidcPayload | null> {
   try {
-    const result = await verifyRS256Signature(token);
+    const result = await verifyRS256Signature(token, GOOGLE_OIDC_CERTS_URL);
     if (!result) return null;
 
     const payload = result.payload as unknown as OidcPayload;
@@ -51,8 +51,8 @@ export async function verifyOidcToken(token: string): Promise<OidcPayload | null
 
     if (payload.exp <= now) return null;
     if (payload.iss !== GOOGLE_OIDC_ISSUER) return null;
-    if (INTERNAL_OIDC_AUDIENCE && payload.aud !== INTERNAL_OIDC_AUDIENCE) return null;
-    if (INTERNAL_SCHEDULER_EMAIL && payload.email !== INTERNAL_SCHEDULER_EMAIL) return null;
+    if (!INTERNAL_OIDC_AUDIENCE || payload.aud !== INTERNAL_OIDC_AUDIENCE) return null;
+    if (!INTERNAL_SCHEDULER_EMAIL || payload.email !== INTERNAL_SCHEDULER_EMAIL) return null;
 
     return payload;
   } catch {
